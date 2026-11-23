@@ -1,8 +1,10 @@
 """All stats are computed here, deterministically, from raw bets/legs/votes."""
 from collections import Counter, defaultdict
+from datetime import date, timedelta
 
 from . import odds
 from .bets import counted_legs, votes_revealed
+from .util import today_ct
 
 # Leg attributes we split records by. parsed.* come from the sheet / leg parser, enrichment.* from the LLM backfill.
 SPLITS = {
@@ -119,6 +121,7 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
     } for pid in pids}
     favs = {p["id"]: {t["team"] for t in (p.get("favoriteTeams") or []) if t.get("team")} for p in players}
     heartbreaks, group_slots = [], defaultdict(Rec)
+    year_ago = (date.fromisoformat(today_ct()) - timedelta(days=365)).isoformat()  # Hall of Heartbreak: last 12 months
     votes = defaultdict(Counter)
     group = {"parlays": 0, "hits": 0, "nearMisses": 0, "xHits": 0.0, "xHitsN": 0, "spent": 0.0, "paidOut": 0.0,
              "biggestPayout": None, "legs": Rec(), "bySize": Counter()}
@@ -251,8 +254,9 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
             "biggestPayout": g["biggestPayout"],
             "legs": g["legs"].out(),
             "bySlot": {k: r.out() for k, r in sorted(group_slots.items(), key=lambda x: -(x[1].w + x[1].l))},
-            # closest losses ever (margin is negative = missed by that much)
-            "heartbreaks": sorted(heartbreaks, key=lambda h: abs(h["margin"]))[:10],
+            # closest losses in the last 12 months (margin is negative = missed by that much); ties: newest first
+            "heartbreaks": sorted(sorted([h for h in heartbreaks if h["date"] >= year_ago], key=lambda h: h["date"], reverse=True),
+                                  key=lambda h: abs(h["margin"]))[:10],
         },
         "players": out_players,
         "votes": {voter: dict(c) for voter, c in votes.items()},

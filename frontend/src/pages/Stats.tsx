@@ -407,7 +407,7 @@ function Heartbreak({ data, players }: { data: StatsT; players: Record<string, P
   const hb = data.group.heartbreaks ?? [];
   if (!hb.length) return null;
   return (
-    <Section title="Hall of Heartbreak" right={<span className="text-xs text-muted">closest losses ever</span>}>
+    <Section title="Hall of Heartbreak" right={<span className="text-xs text-muted">closest losses, last 12 months</span>}>
       <div className="card divide-y divide-[var(--border)]">
         {hb.slice(0, 8).map((h, i) => (
           <Link key={`${h.betId}-${h.playerId}`} to={`/bets/${h.betId}`} className="flex items-center gap-3 p-3">
