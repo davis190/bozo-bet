@@ -4,7 +4,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { useApi } from "../lib/api";
 import { fmtDate, fmtMoney, fmtOdds, fmtPct, fmtSigned, record } from "../lib/format";
 import { useSession } from "../lib/session";
-import type { Player, PlayerStats, Stats as StatsT } from "../lib/types";
+import type { Drought, Player, PlayerStats, Stats as StatsT } from "../lib/types";
 import { Avatar, ErrorBox, Section, Spinner, Stat, slotColor } from "../components/ui";
 
 export const RANGES = [
@@ -48,7 +48,7 @@ const SORTS: { key: SortKey; label: string }[] = [
 export default function Stats() {
   const { players, setPlayers } = useSession();
   const { range, setRange, qs } = useRange();
-  const cur = useApi<{ players: Player[] }>("/current");
+  const cur = useApi<{ players: Player[]; droughts: Record<string, Drought>; currentBozoId?: string }>("/current");
   const { data, error, loading } = useApi<StatsT>(`/stats?${qs}`);
   const [sort, setSort] = useState<SortKey>("pct");
 
@@ -73,6 +73,8 @@ export default function Stats() {
         <Stat label="One leg away" value={g.nearMisses} sub="parlays killed by a single leg" />
         <Stat label="Group P&L" value={fmtMoney(g.paidOut - g.spent)} sub={`${fmtMoney(g.spent)} in · ${fmtMoney(g.paidOut)} out`} />
       </div>
+
+      {cur.data && <DroughtStrip droughts={cur.data.droughts ?? {}} currentBozoId={cur.data.currentBozoId} />}
 
       <Awards rows={data.players} players={players} />
 
@@ -326,6 +328,38 @@ function SlotSplits({ data }: { data: StatsT }) {
             <div className="w-12 text-right tabular text-ink-2">{fmtPct(r.pct)}</div>
           </div>
         ))}
+      </div>
+    </Section>
+  );
+}
+
+/** How long since each player was last crowned. Longest drought first: they're "due". */
+function DroughtStrip({ droughts, currentBozoId }: { droughts: Record<string, Drought>; currentBozoId?: string }) {
+  const { players } = useSession();
+  const rows = Object.values(players)
+    .filter((p) => p.active)
+    .map((p) => ({ p, d: droughts[p.id] }))
+    .sort((a, b) => (b.d?.betsSince ?? 9999) - (a.d?.betsSince ?? 9999));
+  if (!rows.length) return null;
+  return (
+    <Section title="Bozo Drought" right={<span className="text-xs text-muted">bets since last crowned</span>}>
+      <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 no-scrollbar">
+        {rows.map(({ p, d }, i) => {
+          const now = p.id === currentBozoId;
+          return (
+            <div key={p.id} className="card shrink-0 w-[104px] p-3 flex flex-col items-center text-center"
+              style={now ? { boxShadow: "inset 0 0 0 2px var(--gold)" } : undefined}>
+              <Avatar p={p} size={40} crown={now} />
+              <div className="text-[11px] font-semibold mt-1.5 leading-tight line-clamp-2 min-h-[2.2em]">{p.displayName}</div>
+              <div className="font-display text-2xl tabular leading-none mt-1">{now ? "👑" : d ? d.betsSince : "∞"}</div>
+              <div className="text-[10px] text-muted mt-1">
+                {now ? "bozo now" : d ? (d.betsSince === 1 ? "bet ago" : "bets ago") : "never bozo 😇"}
+              </div>
+              {d && !now && <div className="text-[10px] text-muted">{fmtDate(d.lastDate, { month: "short", day: "numeric", year: "2-digit" })}</div>}
+              {i === 0 && !now && <span className="chip mt-1.5 bg-accent text-white !text-[10px]">due 👀</span>}
+            </div>
+          );
+        })}
       </div>
     </Section>
   );
