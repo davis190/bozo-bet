@@ -27,6 +27,8 @@ DEFAULT_MODELS = {
     "fun": "qwen.qwen3-next-80b-a3b",    # funniest names in human review, 1/8 Haiku's cost
     "fun_fallback": HAIKU,
     "track": HAIKU,                      # tracker agent: leg -> game/stat spec (tool loop over ESPN)
+    "commentary": HAIKU,                 # ballot color commentary; grounded in tracker facts, so accuracy > wit
+    "commentary_fallback": SONNET,
     "writer": SONNET,                    # recaps / scouting reports (not yet evaluated)
 }
 MODELS = {**DEFAULT_MODELS, **json.loads(os.environ.get("LLM_MODELS") or "{}")}

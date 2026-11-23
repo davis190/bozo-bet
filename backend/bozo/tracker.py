@@ -19,7 +19,7 @@ from datetime import timedelta, timezone
 
 import boto3
 
-from . import bets as rules
+from . import commentary, bets as rules
 from . import db, enrich, games, llm, slack
 from .util import TZ, ApiError, now_iso
 
@@ -426,6 +426,8 @@ def run(bet_id, reason="scheduled"):
     outcome = None
     if bet["status"] == "LOCKED" and all(l.get("result") in rules.RESULTS for l in rules.counted_legs(bet)):
         outcome = rules.settle(bet, settings["defaultWager"])
+        if outcome == "vote":
+            commentary.attach(bet, players)
         if bet["kind"] == "bozo":
             (slack.voting_open if outcome == "vote" else slack.new_bozo)(bet, players)
 

@@ -221,3 +221,25 @@ def test_lock_dates_the_bet_and_ids_stay_unique(fake, monkeypatch):
     assert bet["date"] == "2026-11-22"
     side = rules.create_bet("side", "2026-11-22", 5)
     assert side["id"] == "2026-11-22-2"
+
+
+def test_ballot_is_nameless_shuffled_and_drops_leaky_commentary(fake, monkeypatch):
+    from bozo import commentary, llm
+    bet = _bet_with([("p1", "Joe Burrow 2+ TD", -150), ("p2", "Bears ML", 180), ("p3", "c", 100)])
+    for pid, r in (("p1", "L"), ("p2", "L"), ("p3", "W")):
+        rules.upsert_leg(bet, pid, {"result": r}, "admin", admin=True)
+    rules.settle(bet, 10)
+    players = {"p1": {"name": "Joe Smith", "pseudonym": "Captain Chalk"}, "p2": {"name": "Devan Q"}, "p3": {"name": "Kurtz"}}
+    seen = {}
+
+    def fake_llm(system, prompt, schema, **kw):
+        seen["prompt"] = prompt
+        return {"takes": [{"label": "Bet A", "headline": "Burrow left it in the tunnel", "take": "Joe Burrow, -150, nothing."},
+                          {"label": "Bet B", "headline": "Classic Devan move", "take": "Bears."}]}
+    monkeypatch.setattr(llm, "structured", fake_llm)
+    ballot = commentary.build(bet, players)
+    assert [b["label"] for b in ballot] == ["Bet A", "Bet B"] and {b["playerId"] for b in ballot} == {"p1", "p2"}
+    assert "Smith" not in seen["prompt"] and "Devan" not in seen["prompt"] and "Kurtz" not in seen["prompt"]
+    by = {b["label"]: b for b in ballot}
+    assert by["Bet A"].get("headline") == "Burrow left it in the tunnel"  # "Joe" is fine: it's in the bet text
+    assert "headline" not in by["Bet B"]  # named a group member -> dropped

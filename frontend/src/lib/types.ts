@@ -70,7 +70,17 @@ export interface Bet {
   slipUrl?: string;
   legs: Leg[];
   voting?: Voting;
+  ballot?: BallotEntry[];
   tracker?: { runs: number; lastRun?: string; nextRun?: string | null; why?: string };
+}
+
+export interface BallotEntry {
+  playerId: string;
+  label: string;
+  text?: string;
+  odds?: number;
+  headline?: string;
+  take?: string;
 }
 
 export interface Current {

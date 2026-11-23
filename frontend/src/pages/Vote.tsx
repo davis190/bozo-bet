@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { post, useApi } from "../lib/api";
 import { useSession } from "../lib/session";
-import type { Bet, Current } from "../lib/types";
+import type { BallotEntry, Bet, Current } from "../lib/types";
 import { Avatar, Empty, ErrorBox, Odds, Section, Spinner } from "../components/ui";
 
 export default function Vote() {
@@ -40,14 +40,15 @@ export default function Vote() {
     }
   }
 
-  const candidates = bet.candidates ?? [];
+  const ballot = ballotOf(bet);
+  const entry = (pid: string) => ballot.find((b) => b.playerId === pid);
   const maxVotes = Math.max(1, ...Object.values(v.tally ?? {}));
 
   return (
     <div>
-      <h1 className="font-display text-3xl">{v.revealed ? "The People Have Spoken" : "Who's the Bozo?"}</h1>
+      <h1 className="font-display text-3xl">{v.revealed ? "The People Have Spoken" : "Worst Bet of the Week"}</h1>
       <p className="text-ink-2 text-sm mt-1">
-        {v.revealed ? "Votes are public. Grudges are forever." : `Only losers are on the ballot. Votes stay secret until all ${v.voters.length} are in.`}
+        {v.revealed ? "Votes are public. Grudges are forever." : `Vote on the bet, not the bettor. Only losing legs make the ballot. Votes stay secret until all ${v.voters.length} are in.`}
       </p>
 
       {v.revealed ? (
@@ -60,13 +61,17 @@ export default function Vote() {
             </div>
           )}
           <Section title="Tally">
-            <div className="card p-4 grid gap-3">
-              {candidates.map((c) => (
-                <div key={c}>
-                  <div className="flex justify-between text-sm mb-1"><span className="font-bold">{players[c]?.displayName}</span><span className="tabular">{v.tally?.[c] ?? 0}</span></div>
-                  <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${((v.tally?.[c] ?? 0) / maxVotes) * 100}%`, background: "var(--accent)" }} />
+            <div className="card p-4 grid gap-4">
+              {ballot.map((b) => (
+                <div key={b.playerId}>
+                  <div className="flex justify-between gap-3 text-sm mb-1">
+                    <span className="min-w-0"><span className="font-bold">{b.label}</span> <span className="text-ink-2">{b.text}</span> <Odds o={b.odds} /></span>
+                    <span className="tabular font-bold">{v.tally?.[b.playerId] ?? 0}</span>
                   </div>
+                  <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${((v.tally?.[b.playerId] ?? 0) / maxVotes) * 100}%`, background: "var(--accent)" }} />
+                  </div>
+                  <div className="text-xs text-muted mt-1">{b.headline ? `“${b.headline}” · ` : ""}picked by {players[b.playerId]?.displayName}</div>
                 </div>
               ))}
             </div>
@@ -78,8 +83,8 @@ export default function Vote() {
                   <Avatar p={players[x.voterId]} size={28} />
                   <span className="font-semibold">{players[x.voterId]?.displayName}</span>
                   <span className="text-muted">→</span>
-                  <Avatar p={players[x.candidateId]} size={28} />
-                  <span className="font-semibold">{players[x.candidateId]?.displayName}</span>
+                  <span className="font-semibold">{entry(x.candidateId)?.label}</span>
+                  <span className="text-ink-2 truncate min-w-0">{entry(x.candidateId)?.text}</span>
                   {x.voterId === x.candidateId && <span className="chip bg-surface-2 text-gold ml-auto">self-snitch</span>}
                 </div>
               ))}
@@ -89,21 +94,31 @@ export default function Vote() {
       ) : (
         <>
           <div className="grid gap-2 mt-4">
-            {candidates.map((c) => {
-              const leg = bet.legs.find((l) => l.playerId === c);
-              const selected = pick === c || v.myVote === c;
+            {ballot.map((b) => {
+              const leg = bet.legs.find((l) => l.playerId === b.playerId);
+              const selected = pick === b.playerId || v.myVote === b.playerId;
               return (
-                <button key={c} disabled={!canVote} onClick={() => setPick(c)}
-                  className="card p-4 flex items-center gap-3 text-left transition"
+                <button key={b.playerId} disabled={!canVote} onClick={() => setPick(b.playerId)}
+                  className="card p-4 text-left transition"
                   style={selected ? { boxShadow: "inset 0 0 0 2px var(--accent)", background: "color-mix(in srgb, var(--accent) 10%, var(--surface))" } : undefined}
                   aria-pressed={selected}>
-                  <Avatar p={players[c]} size={48} />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold">{players[c]?.displayName}{c === me?.id && <span className="text-xs text-muted"> (you)</span>}</div>
-                    <div className="text-sm text-ink-2 break-words">{leg?.text} <Odds o={leg?.odds} /></div>
-                    {typeof leg?.enrichment?.margin === "number" && <div className="text-xs mt-0.5" style={{ color: "var(--serious)" }}>missed by {Math.abs(leg.enrichment.margin as number)} 💀</div>}
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider font-bold text-muted">
+                        {b.label}{b.playerId === me?.id && <span className="chip bg-surface-2 normal-case tracking-normal">yours</span>}
+                      </div>
+                      <div className="font-bold mt-1 break-words">{b.text} <Odds o={b.odds} /></div>
+                      {leg?.live?.detail && <div className="text-xs text-muted mt-0.5">{leg.live.detail}</div>}
+                      {typeof leg?.enrichment?.margin === "number" && <div className="text-xs mt-0.5" style={{ color: "var(--serious)" }}>missed by {Math.abs(leg.enrichment.margin as number)} 💀</div>}
+                    </div>
+                    {selected && <span className="text-2xl">🤡</span>}
                   </div>
-                  {selected && <span className="text-2xl">🤡</span>}
+                  {b.take && (
+                    <div className="mt-3 rounded-lg bg-surface-2 p-3 text-sm">
+                      <div className="font-display">🎙️ {b.headline}</div>
+                      <div className="text-ink-2 mt-1">{b.take}</div>
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -125,4 +140,13 @@ export default function Vote() {
       )}
     </div>
   );
+}
+
+/** The nameless ballot; votes that opened before ballots existed get plain labels. */
+function ballotOf(bet: Bet): BallotEntry[] {
+  if (bet.ballot?.length) return bet.ballot;
+  return (bet.candidates ?? []).map((c, i) => {
+    const leg = bet.legs.find((l) => l.playerId === c);
+    return { playerId: c, label: `Bet ${String.fromCharCode(65 + i)}`, text: leg?.text, odds: leg?.odds };
+  });
 }

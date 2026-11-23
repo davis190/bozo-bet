@@ -203,6 +203,9 @@ function BetEditor({ bet, players, run, onChange, onNew }: { bet: Bet; players: 
             </select>
             <button className="btn btn-gold" onClick={() => run(async () => { await post(`/admin/bets/${bet.id}/close-vote`, { choice: choice || undefined }); await onChange(); }, "Vote closed")}>Close the vote</button>
           </div>
+          <button className="btn btn-ghost w-full mt-2" onClick={() => run(async () => { await post(`/admin/bets/${bet.id}/ballot`, {}); await onChange(); }, "Ballot commentary rewritten")}>
+            🎙️ {bet.ballot?.some((b) => b.take) ? "Rewrite" : "Write"} ballot commentary
+          </button>
         </Section>
       )}
 

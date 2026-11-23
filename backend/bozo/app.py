@@ -7,7 +7,7 @@ import re
 
 import boto3
 
-from . import auth, db, llm, slack, stats, views
+from . import commentary, auth, db, llm, slack, stats, views
 from . import bets as rules
 from .util import ApiError, new_id, now_iso, response, today_ct
 
@@ -263,6 +263,8 @@ def admin_settle(req):
         rules.upsert_leg(bet, pid, {"result": result}, "admin", admin=True)
     outcome = rules.settle(bet, req.body.get("nextWager") or db.get_settings()["defaultWager"], req.body.get("payout"))
     players = _players()
+    if outcome == "vote":
+        commentary.attach(bet, players)
     if bet["kind"] == "bozo":
         (slack.voting_open if outcome == "vote" else slack.new_bozo)(bet, players)
     return _present(req, bet)
@@ -275,6 +277,16 @@ def admin_reload(req):
                        req.body.get("date") or today_ct())
     slack.new_bozo(old, _players())
     return _present(req, new)
+
+
+@route("POST", "/api/admin/bets/{betId}/ballot", "admin")
+def admin_ballot(req):
+    """Rewrite the ballot commentary (or create it for a vote that opened before ballots existed)."""
+    bet = _bundle(req.params["betId"])
+    if not bet.get("candidates"):
+        raise ApiError(409, "No vote on this bet")
+    commentary.attach(bet, _players())
+    return _present(req, bet)
 
 
 @route("POST", "/api/admin/bets/{betId}/close-vote", "admin")

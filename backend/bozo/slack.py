@@ -53,8 +53,11 @@ def legs_summary(bet, players, changed=False):
 
 
 def voting_open(bet, players):
-    names = ", ".join(_name(players, c) for c in bet.get("candidates", []))
-    main(f":ballot_box_with_ballot: *Bozo voting is open!* Candidates: {names}\nVote here: {SITE}/vote")
+    # Vote on the bet, not the person: no names until the results
+    ballot = bet.get("ballot") or [{"label": f"Bet {chr(65 + i)}", "text": l.get("text"), "odds": l.get("odds")}
+                                   for i, l in enumerate(l for l in bet.get("legs", []) if l["playerId"] in bet.get("candidates", []))]
+    lines = [f"• *{b['label']}*: {b['text']} {_odds(b.get('odds'))}" + (f" - _{b['headline']}_" if b.get("headline") else "") for b in ballot]
+    main(":ballot_box_with_ballot: *Worst bet voting is open!*\n" + "\n".join(lines) + f"\nVote here: {SITE}/vote")
 
 
 def vote_results(bet, players):
