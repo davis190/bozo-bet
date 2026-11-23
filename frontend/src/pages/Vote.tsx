@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { post, useApi } from "../lib/api";
+import { track } from "../lib/analytics";
 import { useSession } from "../lib/session";
 import type { BallotEntry, Bet, Current } from "../lib/types";
 import { VoteTally } from "../components/VoteTally";
@@ -33,6 +34,7 @@ export default function Vote() {
     setErr(null);
     try {
       const updated = await post<Bet>(`/bets/${bet!.id}/vote`, { candidateId: pick });
+      track("vote_cast", { self_vote: pick === me?.id });
       setData((d) => (d ? { ...d, bet: updated.status === "CLOSED" ? null : updated, lastBet: updated.status === "CLOSED" ? updated : d.lastBet } : d));
     } catch (e) {
       setErr((e as Error).message);

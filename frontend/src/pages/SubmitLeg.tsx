@@ -3,6 +3,7 @@ import { ApiError, post, put } from "../lib/api";
 import { fmtPct } from "../lib/format";
 import type { Bet, Leg, ParsedLeg } from "../lib/types";
 import { Sheet } from "../components/ui";
+import { track } from "../lib/analytics";
 import { useSession } from "../lib/session";
 
 interface ParseResp { leg: ParsedLeg; history: { label: string; w: number; l: number; pct: number }[]; floorWarning?: string | null }
@@ -52,6 +53,7 @@ export function SubmitLeg({ open, onClose, bet, existing, onSaved }: { open: boo
     try {
       const o = odds.trim() ? parseInt(odds, 10) : undefined;
       await put(`/bets/${bet.id}/my-leg`, { text: text.trim(), odds: Number.isFinite(o) ? o : undefined, sgp: parsed?.leg.sgp, parsed: parsed?.leg.parsed });
+      track("leg_submit", { changed: !!existing, method: manual ? "manual" : "parsed", sport: parsed?.leg.parsed?.sport, market: parsed?.leg.parsed?.market });
       onSaved();
       onClose();
     } catch (e) {

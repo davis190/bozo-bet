@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { fmtOdds } from "../lib/format";
+import { track } from "../lib/analytics";
 import { GLOSSARY, type TermKey } from "../lib/glossary";
 import type { Leg, LiveStatus, Player, Result } from "../lib/types";
 
@@ -137,7 +138,7 @@ export function Stat({ label, value, sub, info }: { label: string; value: ReactN
   return (
     <div className="card p-3.5 relative">
       <div className="text-[11px] uppercase tracking-wider text-muted font-semibold pr-6">{label}</div>
-      {info && <InfoButton open={open} onClick={() => setOpen(!open)} label={label} />}
+      {info && <InfoButton open={open} onClick={() => { if (!open) track("stat_explained", { term: info }); setOpen(!open); }} label={label} />}
       {open && info ? (
         <div className="text-xs text-ink-2 mt-1 leading-snug">{GLOSSARY[info].def}</div>
       ) : (
@@ -163,7 +164,7 @@ export function InfoButton({ open, onClick, label }: { open: boolean; onClick: (
 /** Collapsible list of definitions. */
 export function Glossary({ keys, title = "What do these mean?" }: { keys: TermKey[]; title?: string }) {
   return (
-    <details className="card mt-2 group">
+    <details className="card mt-2 group" onToggle={(e) => { if ((e.target as HTMLDetailsElement).open) track("glossary_open", { section: title }); }}>
       <summary className="p-3 text-sm font-semibold cursor-pointer list-none flex justify-between items-center">
         {title}<span className="text-muted group-open:rotate-180 transition">▾</span>
       </summary>

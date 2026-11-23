@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Link, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { pageView, setRole, track } from "./lib/analytics";
 import { handleCallback, login } from "./lib/auth";
 import { useSession, useTheme } from "./lib/session";
 import { Avatar, Spinner } from "./components/ui";
@@ -34,7 +35,7 @@ function Callback() {
   const { refresh } = useSession();
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
-    handleCallback().then(async (to) => { await refresh(); nav(to, { replace: true }); }).catch((e) => setErr(e.message));
+    handleCallback().then(async (to) => { await refresh(); track("login"); nav(to, { replace: true }); }).catch((e) => setErr(e.message));
   }, [nav, refresh]);
   return err ? <div className="card p-6 mt-4 text-center">😬 {err} <Link className="text-accent underline block mt-2" to="/">Home</Link></div> : <Spinner label="Checking your ID at the door…" />;
 }
@@ -44,6 +45,8 @@ function Shell() {
   useTheme();
   const { me, role, atLeast } = useSession();
   const { pathname } = useLocation();
+  useEffect(() => { if (pathname !== "/auth/callback") pageView(pathname); }, [pathname]);
+  useEffect(() => { setRole(role); }, [role]);
   // Me = your own stats page when you're one of the bozos (settings are a link from there); otherwise settings
   const mine = me && atLeast("viewer") ? `/stats/${me.id}` : "/me";
   const onMine = pathname === mine || pathname === "/me";
