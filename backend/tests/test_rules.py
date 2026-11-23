@@ -156,3 +156,25 @@ def test_tracker_player_name_matching():
     players = {"Kenneth Walker III": {"x": 1}, "Amon-Ra St. Brown": {"x": 2}}
     assert _find_player(players, "Kenneth Walker") == {"x": 1}
     assert _find_player(players, "Amon-Ra St Brown") == {"x": 2}
+
+
+def test_tracker_normalize_fixes_known_mismatches():
+    from bozo.tracker import normalize
+    f = {"found": True}
+    assert normalize({**f, "kind": "game_total", "direction": "under", "line": 40.5}, "O40.5 Texans Rams (alt)")["direction"] == "over"
+    assert normalize({**f, "kind": "player_stat", "direction": "under", "line": 225}, "Lamar O 225 passing")["direction"] == "over"
+    assert normalize({**f, "kind": "player_stat", "direction": "over", "line": 207.5}, "Kyler Murray Under 207.5 Yards")["direction"] == "under"
+    td = normalize({**f, "kind": "team_total", "team": "HOU", "line": 2.5}, "Texans O 2.5 TDs")
+    assert td["kind"] == "team_stat" and td["stat"] == "TD"
+    assert normalize({**f, "kind": "player_stat", "stats": ["passing.TD", "rushing.TD"]}, "Jordan Love 1.5 TD O")["stats"] == ["passing.TD"]
+    assert normalize({**f, "kind": "player_stat", "stats": ["rushing.TD", "receiving.TD"]}, "J Allen anytime TD")["stats"] == ["rushing.TD", "receiving.TD"]
+    assert normalize({**f, "kind": "moneyline", "league": "soccer/eng.1"}, "Arsenal ML v Brentford")["drawLoses"] is True
+    for unsupported in ("Bo Nix 145+ pass yds 1st half", "Liverpool Arsenal both teams to score", "Brewers/cubs total runs even", "Crystal Palace or Tie"):
+        assert normalize({**f, "kind": "player_stat"}, unsupported)["found"] is False, unsupported
+
+
+def test_tracker_counts_touchdowns_not_points():
+    from bozo.tracker import evaluate
+    g = {**_game("post", {"HOU": 23, "DET": 26}), "scoring": {"HOU": {"TD": 2, "FG": 3}, "DET": {"TD": 3, "FG": 1}}}
+    assert evaluate({"kind": "team_stat", "team": "HOU", "stat": "TD", "line": 2.5, "direction": "over"}, g)["result"] == "L"
+    assert evaluate({"kind": "game_stat", "stat": "FG", "line": 3.5, "direction": "over"}, g)["result"] == "W"

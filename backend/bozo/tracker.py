@@ -34,7 +34,9 @@ SPEC_SCHEMA = {
         "sport": {"type": "string"},
         "league": {"type": "string", "description": "ESPN league path from find_games, e.g. football/nfl"},
         "eventId": {"type": "string"},
-        "kind": {"type": "string", "enum": ["moneyline", "spread", "game_total", "team_total", "player_stat"]},
+        "kind": {"type": "string", "enum": ["moneyline", "spread", "game_total", "team_total", "player_stat", "team_stat", "game_stat"],
+                 "description": "team_total/game_total = POINTS. team_stat/game_stat = counted plays (touchdowns or field goals) for one team / both teams"},
+        "stat": {"type": "string", "enum": ["TD", "FG"], "description": "team_stat/game_stat only"},
         "team": {"type": "string", "description": "Abbreviation of the team picked (moneyline/spread/team_total) as shown by find_games"},
         "player": {"type": "string", "description": "Athlete's full name as it appears in the box score"},
         "stats": {"type": "array", "items": {"type": "string"},
@@ -70,6 +72,12 @@ The bet was placed for a parlay dated {date}; its game is usually within a few d
 Group conventions: 'O'/'U' = over/under, 'ML' = moneyline, 'ATD' = anytime touchdown (rushing+receiving TDs over 0.5),
 'tuddies' = touchdowns, 'X+' = over X-0.5, 'TT' = team total, 'alt' lines are just spreads.
 For a quarterback, 'TD'/'TDs' means passing TDs unless it says rush/rushing or ATD.
+'Packers O 2.5 TDs' = team_stat TD; 'SF/WAS O 5.5 TD' = game_stat TD; 'over 3.5 field goals' = game_stat FG.
+Team nicknames/typos happen: Redskins = WSH, TEX = HOU (Texans), 'Commandos' = Commanders.
+NFL games run Thursday-Monday around the parlay date. For daily sports (MLB, NBA, NHL, college basketball, soccer)
+teams play on back-to-back days, so pick the game ON the parlay date, or the next day if there is none.
+Unsupported (respond found=false, reason 'unsupported market'): first-half/quarter bets, regulation-only, both teams to score,
+odd/even, double chance / 'or tie', futures, tennis, golf, cricket, AFL, CFL.
 Two teams separated by '/', 'vs' or '-' with O/U means the game total.
 Stat keys by sport: {keys}
 For player bets call find_player (names are often misspelled, nicknamed, or first-name-only). For team bets call find_games.\nUse the exact box-score spelling in your answer. Then call respond.
@@ -107,8 +115,44 @@ def _tool(name, args, cache):
     return {"error": f"unknown tool {name}"}
 
 
+UNSUPPORTED = re.compile(r"1st half|first half|\b1h\b|1st quarter|halftime|regulation|regular time|both teams to score|\bbtts\b|"
+                         r"\beven\b|\bodd\b|or tie|or draw|double chance|to win (the )?(champions|league|cup|title|series|world)|"
+                         r"\btop \d+|hole.?in.?one|century", re.I)
+OVER = re.compile(r"(^|[\s/(])(o|over)\s*\.?\d|\bover\b|\d\+", re.I)
+UNDER = re.compile(r"(^|[\s/(])(u|under)\s*\.?\d|\bunder\b", re.I)
+TD_WORDS = re.compile(r"\btds?\b|touchdowns?|tudd", re.I)
+
+
+def normalize(spec, text):
+    """Code, not the model, has the last word on things the text states plainly."""
+    if not spec.get("found"):
+        return spec
+    if UNSUPPORTED.search(text):
+        return {**spec, "found": False, "reason": f"unsupported market for auto-grading: '{UNSUPPORTED.search(text).group(0)}'"}
+    kind = spec.get("kind")
+    if kind in ("game_total", "team_total", "player_stat", "team_stat", "game_stat"):
+        if UNDER.search(text) and not OVER.search(text):
+            spec["direction"] = "under"
+        elif OVER.search(text) and not UNDER.search(text):
+            spec["direction"] = "over"
+    # 'Team O 2.5 TDs' is a touchdown count, not points
+    if kind in ("team_total", "game_total") and TD_WORDS.search(text) and float(spec.get("line") or 99) < 10:
+        spec.update(kind="team_stat" if kind == "team_total" else "game_stat", stat="TD")
+    if kind == "player_stat" and set(spec.get("stats") or []) == {"passing.TD", "rushing.TD"} and not re.search(r"rush|atd|anytime|total", text, re.I):
+        spec["stats"] = ["passing.TD"]
+        spec["statLabel"] = "pass TDs"
+    if kind == "moneyline" and (spec.get("league") or "").startswith("soccer") and not re.search(r"draw no bet|\bdnb\b", text, re.I):
+        spec["drawLoses"] = True
+    return spec
+
+
 def resolve(leg, bet_date, cache=None, model=None):
-    """Agent loop: up to 8 tool turns, then a spec dict."""
+    """Agent loop, then deterministic normalization."""
+    return normalize(_resolve(leg, bet_date, cache, model), leg["text"])
+
+
+def _resolve(leg, bet_date, cache=None, model=None):
+    """Agent loop: up to 10 tool turns, then a spec dict."""
     cache = {} if cache is None else cache
     sport = (leg.get("parsed") or {}).get("sport")
     msg = f"Bet: {leg['text']}" + (f"\nLikely sport: {sport}" if sport else "")
@@ -200,7 +244,16 @@ def evaluate(spec, s):
         status = "ON_PACE" if m > thr else "OFF_PACE" if m < -thr else "IN_DOUBT"
         return {**live, "status": status}
 
-    if kind in ("game_total", "team_total"):
+    if kind in ("team_stat", "game_stat"):
+        stat, sc = spec.get("stat") or "TD", s.get("scoring") or {}
+        if kind == "game_stat":
+            v = sum(x.get(stat, 0) for x in sc.values())
+        elif spec.get("team") in sc:
+            v = sc[spec["team"]].get(stat, 0)
+        else:
+            return {**live, "status": "IN_DOUBT", "detail": "Can't find the team in this game", "needsReview": True}
+        live["detail"] = f"{clock} · {score} · {v} {stat}s (line {line:g})"
+    elif kind in ("game_total", "team_total"):
         if kind == "game_total":
             v = sum(t["score"] or 0 for t in s["teams"])
         else:

@@ -16,7 +16,10 @@ LEAGUES = {
     "NCAAB": ["basketball/mens-college-basketball"],
     "MLB": ["baseball/mlb"],
     "NHL": ["hockey/nhl"],
-    "Soccer": ["soccer/eng.1", "soccer/usa.1", "soccer/uefa.champions", "soccer/esp.1", "soccer/ger.1", "soccer/ita.1", "soccer/fifa.world"],
+    "WNBA": ["basketball/wnba"],
+    "Soccer": ["soccer/eng.1", "soccer/usa.1", "soccer/uefa.champions", "soccer/esp.1", "soccer/ger.1", "soccer/ita.1", "soccer/fra.1",
+               "soccer/fifa.world", "soccer/fifa.friendly", "soccer/fifa.cwc", "soccer/uefa.nations", "soccer/concacaf.gold",
+               "soccer/bra.1", "soccer/mex.1", "soccer/eng.fa", "soccer/uefa.europa"],
 }
 # college scoreboards default to "top 25" games; these groups widen to all of D-I
 GROUPS = {"football/college-football": "80", "basketball/mens-college-basketball": "50"}
@@ -100,6 +103,12 @@ def summary(league, event_id, cache=None):
                 p = players.setdefault(name, {"_team": abbr})
                 for label, val in zip(labels, a.get("stats", [])):
                     p[f"{prefix}.{label}"] = _num(val)
+    scoring = {t["abbr"]: {"TD": 0, "FG": 0} for t in teams}
+    for sp in data.get("scoringPlays") or []:
+        abbr = (sp.get("team") or {}).get("abbreviation")
+        kind = {"touchdown": "TD", "field-goal": "FG"}.get((sp.get("scoringType") or {}).get("name"))
+        if abbr in scoring and kind:
+            scoring[abbr][kind] += 1
     pick = (data.get("pickcenter") or [{}])[0]
     home = next((t["abbr"] for t in teams if t["home"]), None)
     away = next((t["abbr"] for t in teams if not t["home"]), None)
@@ -108,7 +117,7 @@ def summary(league, event_id, cache=None):
     out = {"league": league, "id": event_id, "teams": teams, "players": players, "start": comp.get("date"),
            "week": data["header"].get("week"), "seasonType": (data["header"].get("season") or {}).get("type"),
            "neutral": comp.get("neutralSite"), "indoor": venue.get("indoor"), "venue": venue.get("fullName"),
-           "favorite": favorite, "marketSpread": pick.get("spread"), "marketTotal": pick.get("overUnder"),
+           "favorite": favorite, "scoring": scoring, "marketSpread": pick.get("spread"), "marketTotal": pick.get("overUnder"),
            **_status(comp.get("status") or {})}
     if cache is not None:
         cache[key] = out
@@ -135,6 +144,7 @@ STAT_KEYS = {
            "receiving.YDS receiving.TD kicking.FG kicking.PTS defensive.SACKS",
     "NCAAF": "same as NFL",
     "NBA": "stats.PTS stats.REB stats.AST stats.3PT(made) stats.STL stats.BLK stats.TO",
+    "WNBA": "same as NBA",
     "NCAAB": "same as NBA",
     "MLB": "batting.H batting.R batting.RBI batting.HR batting.BB batting.K pitching.K pitching.ER pitching.H pitching.IP",
     "NHL": "skaters.G skaters.A skaters.SOG skaters.BS goalies.SV goalies.GA",

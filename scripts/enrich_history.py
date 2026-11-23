@@ -53,10 +53,16 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--force", action="store_true", help="re-enrich legs that already have enrichment")
     ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--from-report", action="store_true", help="only redo legs the last report flagged (mismatch/unresolved/error)")
     a = ap.parse_args()
     llm.usage_hook = _hook
     jobs = [(b, l) for b in db.all_data() if b["status"] == "CLOSED"
             for l in rules.counted_legs(b) if a.force or not l.get("enrichment")]
+    if a.from_report:
+        prev = json.loads((Path(__file__).parent / "out" / "enrich_report.json").read_text())
+        flagged = {(x["bet"], x["player"]) for k in ("mismatch", "unresolved", "error") for x in prev.get(k, [])}
+        jobs = [(b, l) for b in db.all_data() if b["status"] == "CLOSED"
+                for l in rules.counted_legs(b) if (b["id"], l["playerId"]) in flagged]
     jobs = jobs[: a.limit or None]
     print(f"{len(jobs)} legs to enrich", flush=True)
     results = []
