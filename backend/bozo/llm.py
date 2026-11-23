@@ -13,13 +13,19 @@ from .util import ApiError, today_ct
 
 log = logging.getLogger()
 
+HAIKU = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+SONNET = "global.anthropic.claude-sonnet-4-6"
+# Picked from evals/results/2026-11-22.md (accuracy first, then cost). <task>_fallback runs when the
+# primary model errors or can't produce valid output twice.
 DEFAULT_MODELS = {
-    "parse": "global.anthropic.claude-haiku-4-5-20251001-v1:0",    # free-text leg -> structured
-    "slack": "global.anthropic.claude-haiku-4-5-20251001-v1:0",    # Slack paste -> legs
-    "slip": "global.anthropic.claude-haiku-4-5-20251001-v1:0",     # ticket photo -> odds
-    "slip_fallback": "global.anthropic.claude-sonnet-4-6",         # low-confidence slip retry
-    "fun": "global.anthropic.claude-haiku-4-5-20251001-v1:0",      # pseudonyms, one-liners
-    "writer": "global.anthropic.claude-sonnet-4-6",                # recaps, scouting reports
+    "parse": HAIKU,                      # 0.93; interactive and low-volume, so best-accuracy-per-dollar wins
+    "slack": "us.amazon.nova-lite-v1:0",  # 0.99, same as Haiku at 1/21 the cost
+    "slack_fallback": HAIKU,
+    "slip": HAIKU,                       # 0.99; money is on the line
+    "slip_fallback": SONNET,             # 1.00; also used when the first read is low-confidence
+    "fun": "qwen.qwen3-next-80b-a3b",    # funniest names in human review, 1/8 Haiku's cost
+    "fun_fallback": HAIKU,
+    "writer": SONNET,                    # recaps / scouting reports (not yet evaluated)
 }
 MODELS = {**DEFAULT_MODELS, **json.loads(os.environ.get("LLM_MODELS") or "{}")}
 
@@ -51,8 +57,21 @@ def _tool_input(resp):
 
 
 def structured(system, content, schema, model=None, max_tokens=2000, task="parse"):
-    """Force a single tool call so the answer always parses. `content` is a str or Converse content blocks."""
-    model = model or MODELS[task]
+    """Force a single tool call so the answer always parses. `content` is a str or Converse content blocks.
+    With no explicit model, a failing primary model falls back to MODELS['<task>_fallback'] if one exists."""
+    if model is None:
+        fallback = MODELS.get(f"{task}_fallback")
+        try:
+            return _structured(system, content, schema, MODELS[task], max_tokens)
+        except (ApiError, client().exceptions.ModelErrorException) as e:
+            if not fallback or getattr(e, "status", 502) == 503:
+                raise
+            log.warning("structured: %s failed for %s (%s), falling back to %s", MODELS[task], task, e, fallback)
+            return _structured(system, content, schema, fallback, max_tokens)
+    return _structured(system, content, schema, model, max_tokens)
+
+
+def _structured(system, content, schema, model, max_tokens):
     if isinstance(content, str):
         content = [{"text": content}]
     tool = {"tools": [{"toolSpec": {"name": "respond", "description": "Return the answer", "inputSchema": {"json": schema}}}]}
