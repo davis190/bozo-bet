@@ -15,6 +15,7 @@ export interface Player {
   roastLevel?: "mild" | "spicy" | "no mercy";
   taunt?: string;
   slackNames?: string[];
+  bannedWords?: string[];
   scouting?: Scouting;
 }
 

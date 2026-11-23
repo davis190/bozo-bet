@@ -342,3 +342,12 @@ def test_n_plus_means_over_n_minus_half(fake):
     bet = rules.create_bet("bozo", "2026-11-23", 10, bozo_id="p1")
     leg = rules.upsert_leg(bet, "p4", {"text": "Allen 1+ INT", "parsed": {"line": 1, "market": "Over"}}, "app")
     assert leg["text"] == "Allen O 0.5 INT" and leg["parsed"]["line"] == 0.5
+
+
+def test_pseudonyms_respect_real_names_and_banned_words():
+    from bozo.pseudo import blocked
+    real = {"chester"}
+    assert blocked("Chester the Clown", real)
+    assert blocked("Panther Prayer Circle", real, ["panther"])
+    assert blocked("", real)
+    assert not blocked("Sweaty Prop Goblin", real, ["panther", " "])

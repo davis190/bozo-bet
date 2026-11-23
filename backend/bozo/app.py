@@ -92,7 +92,10 @@ def public_summary(req):
 def me(req):
     u = dict(req.user)
     p = db.get_player(u["playerId"]) if u.get("playerId") else None
-    return {"user": u, "player": views.player(p, True) if p else None}
+    me_ = views.player(p, True) if p else None
+    if me_:
+        me_["bannedWords"] = p.get("bannedWords") or []  # only ever shown to the player themselves
+    return {"user": u, "player": me_}
 
 
 @route("PUT", "/api/me/profile", "player")

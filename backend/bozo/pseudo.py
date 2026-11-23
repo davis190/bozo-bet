@@ -27,6 +27,12 @@ def _fallback(players):
     return out
 
 
+def blocked(name, real, banned=None):
+    """True when a pseudonym is empty, contains a real name, or uses one of the player's banned words."""
+    n = (name or "").lower()
+    return not n or any(r in n for r in real) or any(w.strip().lower() in n for w in banned or [] if w.strip())
+
+
 def regenerate(only=None):
     players = [p for p in db.list_players() if p.get("active") and (not only or p["id"] in only)]
     bets = [b for b in db.all_data() if b["kind"] == "bozo"][-6:]
@@ -43,9 +49,11 @@ def regenerate(only=None):
     real = {p["name"].lower() for p in db.list_players()}
     for p in players:
         name = names.get(p["id"])
-        # Never leak a real name, even if the model slips one in
-        if not name or any(r in name.lower() for r in real):
+        # Never leak a real name or use a word the player vetoed, even if the model slips one in
+        tries = 0
+        while blocked(name, real, p.get("bannedWords")) and tries < 50:
             name = _fallback([p])[p["id"]]
+            tries += 1
         p["pseudonym"] = name
         db.put_player(p)
     return {p["id"]: p["pseudonym"] for p in players}

@@ -12,11 +12,11 @@ const ROAST = ["mild", "spicy", "no mercy"] as const;
 export default function Me() {
   const { user, me, role, refresh } = useSession();
   const [theme, setTheme] = useTheme();
-  const [form, setForm] = useState<Partial<Player> & { bannedWords?: string }>({});
+  const [form, setForm] = useState<Omit<Partial<Player>, "bannedWords"> & { bannedWords?: string }>({});
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (me) setForm({ avatar: me.avatar, roastLevel: me.roastLevel ?? "spicy", taunt: me.taunt ?? "", favoriteTeams: me.favoriteTeams ?? [] });
+    if (me) setForm({ avatar: me.avatar, roastLevel: me.roastLevel ?? "spicy", taunt: me.taunt ?? "", favoriteTeams: me.favoriteTeams ?? [], bannedWords: (me.bannedWords ?? []).join(", ") });
   }, [me]);
 
   if (role === "public")
@@ -31,7 +31,7 @@ export default function Me() {
 
   async function save() {
     const teams = (form.favoriteTeams ?? []).filter((t) => t.team.trim());
-    await put("/me/profile", { ...form, favoriteTeams: teams, bannedWords: form.bannedWords?.split(",").map((s) => s.trim()).filter(Boolean) });
+    await put("/me/profile", { ...form, favoriteTeams: teams, bannedWords: (form.bannedWords ?? "").split(",").map((s) => s.trim()).filter(Boolean) });
     await refresh();
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -90,6 +90,7 @@ export default function Me() {
             <input className="input" maxLength={80} placeholder="Shown when your leg cashes" value={form.taunt ?? ""} onChange={(e) => setForm({ ...form, taunt: e.target.value })} />
           </Section>
           <Section title="Pseudonym banned words">
+            <p className="text-xs text-muted mb-2">Words your weekly fake name will never use. Applies from the next reroll.</p>
             <input className="input" placeholder="comma, separated" value={form.bannedWords ?? ""} onChange={(e) => setForm({ ...form, bannedWords: e.target.value })} />
           </Section>
           <button className="btn btn-primary w-full mt-5" onClick={save}>{saved ? "Saved ✓" : "Save"}</button>
