@@ -23,9 +23,13 @@ export function LegCard({ leg, player, isBozo, isMe, onClick }: { leg: Leg; play
       {href ? <Link to={href} onClick={stop} aria-label={`${player?.displayName}'s page`}><Avatar p={player} size={40} crown={isBozo} /></Link> : <Avatar p={player} size={40} crown={isBozo} />}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <div className="text-sm font-bold truncate">
-            {href ? <Link to={href} onClick={stop} className="hover:underline">{player?.displayName}</Link> : player?.displayName}
-            {isMe && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-accent">you</span>}
+          <div className="min-w-0">
+            <div className="text-sm font-bold truncate">
+              {href ? <Link to={href} onClick={stop} className="hover:underline">{player?.displayName}</Link> : player?.displayName}
+              {isMe && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-accent">you</span>}
+            </div>
+            {/* Logged-in viewers see real names; keep the weekly fake name underneath, quieter */}
+            {player?.name && player.pseudonym && <div className="text-[11px] text-muted truncate">({player.pseudonym})</div>}
           </div>
           <StatusChip leg={leg} />
         </div>
