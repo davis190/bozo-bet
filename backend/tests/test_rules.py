@@ -267,3 +267,21 @@ def test_same_game_parlay_priced_at_combined_odds(fake):
     assert rules.computed_odds(bet) == odds.to_american(odds.parlay_decimal([143, -110]))
     rules.upsert_leg(bet, "p2", {"result": "P"}, "admin", admin=True)  # group broken by a push -> own odds
     assert rules.computed_odds(bet) == odds.to_american(odds.parlay_decimal([-150, -110]))
+
+
+def test_hit_pays_what_the_slip_says(fake):
+    bet = _bet_with([("p1", "a", 100), ("p2", "b", 100)])
+    bet["toWin"] = 50.0  # boosted: legs alone say 40
+    for pid in ("p1", "p2"):
+        rules.upsert_leg(bet, pid, {"result": "W"}, "admin", admin=True)
+    rules.settle(bet, 10)
+    assert bet["payout"] == 50.0
+
+
+def test_push_shrinks_slip_payout_but_keeps_boost(fake):
+    bet = _bet_with([("p1", "a", 100), ("p2", "b", 100)])
+    bet["toWin"] = 50.0
+    rules.upsert_leg(bet, "p1", {"result": "W"}, "admin", admin=True)
+    rules.upsert_leg(bet, "p2", {"result": "P"}, "admin", admin=True)
+    rules.settle(bet, 10)
+    assert bet["payout"] == 25.0  # push halves it, boost kept

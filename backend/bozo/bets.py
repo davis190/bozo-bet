@@ -38,6 +38,18 @@ def parlay_decimal(bet, legs):
     return odds.parlay_decimal(prices)
 
 
+def slip_payout(bet, legs):
+    """What the casino pays on a hit. The slip's to-win is the truth (it includes boosts the leg odds can't see);
+    a pushed leg shrinks it by that leg's share. Leg math only when there's no slip number."""
+    kept = parlay_decimal(bet, [l for l in legs if l.get("result") != "P"])
+    full = parlay_decimal(bet, legs)
+    wager, slip = bet.get("wager"), bet.get("toWin")
+    leg_math = wager * odds.to_decimal(odds.to_american(full)) if wager and full else None  # what lock() would fill in
+    if slip and not (leg_math and abs(slip - leg_math) < 0.02):  # a real slip number (boosts etc.)
+        return round(slip * kept / full, 2) if kept and full and kept != full else slip
+    return round(wager * kept, 2) if kept and wager else slip
+
+
 def computed_odds(bet):
     """Parlay odds from leg odds, with pushes dropped (standard book behaviour)."""
     legs = [l for l in counted_legs(bet) if l.get("result") != "P"]
@@ -180,12 +192,8 @@ def settle(bet, next_wager, payout=None):
 
     if not losers:
         bet["result"] = "W"
-        # Pushes shrink the payout; use the casino number if given, else recompute without pushed legs
-        if payout is None and bet.get("wager"):
-            d = parlay_decimal(bet, [l for l in legs if l["result"] != "P"])
-            payout = round(bet["wager"] * d, 2) if d else bet.get("toWin")
-        bet["payout"] = payout
-        bet["perPerson"] = round(odds.split_winnings(payout, next_wager, len(legs)), 2)
+        bet["payout"] = payout if payout is not None else slip_payout(bet, legs)
+        bet["perPerson"] = round(odds.split_winnings(bet["payout"], next_wager, len(legs)), 2)
     else:
         bet["result"] = "L"
 
