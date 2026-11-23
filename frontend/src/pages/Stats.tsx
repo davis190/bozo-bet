@@ -39,11 +39,17 @@ export function RangePicker({ range, setRange }: { range: string; setRange: (r: 
   );
 }
 
-type SortKey = "pct" | "luck" | "units" | "bozoCount" | "net";
+type SortKey = "pct" | "luck" | "units" | "bozoCount" | "net" | "streak";
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "pct", label: "Win %" }, { key: "luck", label: "Luck" }, { key: "units", label: "Units" },
-  { key: "bozoCount", label: "Bozos" }, { key: "net", label: "Net $" },
+  { key: "bozoCount", label: "Bozos" }, { key: "net", label: "Net $" }, { key: "streak", label: "Streak" },
 ];
+
+/** "W3" -> 3, "L2" -> -2: hottest first when sorted. */
+const streakVal = (r: PlayerStats) => {
+  const c = r.streaks.current;
+  return c ? (c.startsWith("W") ? 1 : -1) * Number(c.slice(1)) : 0;
+};
 
 export default function Stats() {
   const { players, setPlayers } = useSession();
@@ -72,7 +78,8 @@ export default function Stats() {
 
   useEffect(() => { if (cur.data) setPlayers(cur.data.players); }, [cur.data, setPlayers]);
 
-  const rows = useMemo(() => [...(data?.players ?? [])].sort((a, b) => (b[sort] ?? -999) - (a[sort] ?? -999)), [data, sort]);
+  const rows = useMemo(() => [...(data?.players ?? [])].sort((a, b) =>
+    sort === "streak" ? streakVal(b) - streakVal(a) : (b[sort] ?? -999) - (a[sort] ?? -999)), [data, sort]);
 
   if (loading && !data) return <Spinner label="Crunching the shame…" />;
   if (error || !data) return <ErrorBox error={error} />;
@@ -99,7 +106,7 @@ export default function Stats() {
       <Section title="Leaderboard">
         <div className="flex gap-1.5 overflow-x-auto pb-2 no-scrollbar">
           {SORTS.map((s) => (
-            <button key={s.key} onClick={() => setSort(s.key)} className={`chip !py-1.5 !px-3 ${sort === s.key ? "bg-accent text-white" : "bg-surface-2 text-ink-2"}`}>{s.label}</button>
+            <button key={s.key} onClick={() => setSort(s.key)} className={`chip !py-1.5 !px-3 whitespace-nowrap shrink-0 ${sort === s.key ? "bg-accent text-white" : "bg-surface-2 text-ink-2"}`}>{s.label}</button>
           ))}
         </div>
         <div className="card overflow-x-auto">
@@ -109,6 +116,7 @@ export default function Stats() {
                 <th className="p-3 font-semibold">Bozo</th>
                 <th className="p-3 font-semibold text-right">Record</th>
                 <th className="p-3 font-semibold text-right">Win%</th>
+                <th className="p-3 font-semibold text-right" title="Current win or loss streak">Streak</th>
                 <th className="p-3 font-semibold text-right" title="Wins above what the odds predicted">Luck</th>
                 <th className="p-3 font-semibold text-right" title="Profit if every leg were a 1-unit straight bet">Units</th>
                 <th className="p-3 font-semibold text-right">🤡</th>
@@ -127,6 +135,9 @@ export default function Stats() {
                     </td>
                     <td className="p-3 text-right font-mono whitespace-nowrap">{record(r)}</td>
                     <td className="p-3 text-right">{fmtPct(r.pct)}</td>
+                    <td className="p-3 text-right font-bold whitespace-nowrap" style={{ color: !r.streaks.current ? "var(--muted)" : r.streaks.current.startsWith("W") ? "var(--good)" : "var(--critical)" }}>
+                      {r.streaks.current ? `${r.streaks.current.startsWith("W") ? "🔥" : "🧊"} ${r.streaks.current}` : "—"}
+                    </td>
                     <td className="p-3 text-right" style={{ color: (r.luck ?? 0) < 0 ? "var(--serious)" : "var(--good)" }}>{fmtSigned(r.luck)}</td>
                     <td className="p-3 text-right">{fmtSigned(r.units)}</td>
                     <td className="p-3 text-right">{r.bozoCount}</td>
