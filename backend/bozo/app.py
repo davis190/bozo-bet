@@ -139,7 +139,7 @@ def _notify_leg(bet, leg, was_complete):
         # Every leg gets its own post so the group can react to it; reactions map back via the ts
         ts = slack.leg_submitted(bet, leg, players, count=(len(rules.counted_legs(bet)), len(active)), settings=settings)
         if ts:
-            db.put_slack_msg(settings["slackChannelMain"], ts, bet, leg["playerId"])
+            reactions.new_leg_post(settings["slackChannelMain"], ts, bet, leg)
         if complete:
             slack.legs_summary(bet, players, changed=was_complete)
     except Exception:

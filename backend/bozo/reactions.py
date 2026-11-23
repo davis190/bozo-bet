@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import time
 
 import boto3
@@ -44,6 +45,22 @@ def summarize(reactions, k):
         out[kind] += len(users)
         out["emojis"].append([name, len(users), kind])
     return out
+
+
+def same_bet(a, b):
+    """Two versions of a leg are the same bet when the words match; odds in parentheses don't count."""
+    norm = lambda t: re.sub(r"\s+", " ", re.sub(r"\([^)]*\)", "", (t or "").lower())).strip()
+    return norm(a) == norm(b)
+
+
+def new_leg_post(channel, ts, bet, leg):
+    """Track a fresh leg post. If the player switched to a different bet, the old posts stop counting
+    (their reactions were about a bet that no longer exists), then the leg's reactions are rebuilt from what's left."""
+    for m in db.list_slack_msgs():
+        if m["betId"] == bet["id"] and m["playerId"] == leg["playerId"] and not same_bet(m.get("text"), leg["text"]):
+            db.delete_slack_msg(m["channel"], m["ts"])
+    db.put_slack_msg(channel, ts, bet, leg["playerId"], leg["text"])
+    _sync_legs({(bet["id"], leg["playerId"])})
 
 
 # ---------------- Slack Events API ----------------
@@ -86,20 +103,31 @@ def sync(since_days=21):
     """Backup for the Events API: read reactions straight off recent tracked leg posts and make the stored ones match.
     Needs only channels/groups:history. Returns (added, removed)."""
     cutoff = time.time() - since_days * 86400
+    return _sync_legs({(m["betId"], m["playerId"]) for m in db.list_slack_msgs() if float(m["ts"]) >= cutoff})
+
+
+def _sync_legs(legs):
+    """Make stored reactions for these (betId, playerId) legs match their tracked Slack posts exactly."""
     added = removed = 0
-    posts = [m for m in db.list_slack_msgs() if float(m["ts"]) >= cutoff]
-    by_leg = {}
+    posts = [m for m in db.list_slack_msgs() if (m["betId"], m["playerId"]) in legs]
+    want = {leg: set() for leg in legs}
+    msg_for = {}
     for m in posts:
         out = slack.api("conversations.history", channel=m["channel"], latest=m["ts"], oldest=m["ts"], inclusive="true", limit=1)
+        if not out.get("ok"):
+            return added, removed  # can't see Slack right now: change nothing rather than wipe reactions
         msg = (out.get("messages") or [{}])[0]
-        want = by_leg.setdefault((m["betId"], m["playerId"]), {"msg": m, "want": set()})
-        want["want"] |= {(base(r["name"]), u) for r in msg.get("reactions", []) for u in r.get("users", [])}
-    for (bet_id, pid), x in by_leg.items():
-        have = {(r["emoji"], r["user"]) for r in db.list_reactions(bet_id, pid)}
-        for emoji, user in x["want"] - have:
-            db.put_reaction(x["msg"], emoji, user)
+        key = (m["betId"], m["playerId"])
+        msg_for[key] = m
+        want[key] |= {(base(r["name"]), u) for r in msg.get("reactions", []) for u in r.get("users", [])}
+    for (bet_id, pid), w in want.items():
+        stored = db.list_reactions(bet_id, pid)
+        have = {(r["emoji"], r["user"]) for r in stored}
+        target = msg_for.get((bet_id, pid)) or {"betId": bet_id, "playerId": pid, "date": (stored[0].get("gsi1sk", "")[:10] if stored else "")}
+        for emoji, user in w - have:
+            db.put_reaction(target, emoji, user)
             added += 1
-        for emoji, user in have - x["want"]:
-            db.delete_reaction(x["msg"], emoji, user)
+        for emoji, user in have - w:
+            db.delete_reaction(target, emoji, user)
             removed += 1
     return added, removed

@@ -351,3 +351,9 @@ def test_pseudonyms_respect_real_names_and_banned_words():
     assert blocked("Panther Prayer Circle", real, ["panther"])
     assert blocked("", real)
     assert not blocked("Sweaty Prop Goblin", real, ["panther", " "])
+
+
+def test_same_bet_ignores_odds_only():
+    from bozo.reactions import same_bet
+    assert same_bet("DET ML", "DET ML (+120)")
+    assert not same_bet("49ers ML", "D'Andre Swift O 12.5 Carries")

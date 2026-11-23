@@ -147,8 +147,13 @@ def list_reactions(bet_id, player_id):
     return [from_dynamo(i) for i in _query_all(KeyConditionExpression=Key("pk").eq(f"BET#{bet_id}") & Key("sk").begins_with(f"RX#{player_id}#"))]
 
 
-def put_slack_msg(channel, ts, bet, player_id):
-    table().put_item(Item={"pk": f"SLACKMSG#{channel}#{ts}", "sk": "META", "betId": bet["id"], "date": bet["date"], "playerId": player_id})
+def put_slack_msg(channel, ts, bet, player_id, text=None):
+    table().put_item(Item={"pk": f"SLACKMSG#{channel}#{ts}", "sk": "META", "betId": bet["id"], "date": bet["date"],
+                           "playerId": player_id, **({"text": text} if text else {})})
+
+
+def delete_slack_msg(channel, ts):
+    table().delete_item(Key={"pk": f"SLACKMSG#{channel}#{ts}", "sk": "META"})
 
 
 def get_slack_msg(channel, ts):
