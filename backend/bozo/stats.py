@@ -2,7 +2,7 @@
 from collections import Counter, defaultdict
 
 from . import odds
-from .bets import counted_legs
+from .bets import counted_legs, votes_revealed
 
 # Leg attributes we split records by. parsed.* come from the sheet / leg parser, enrichment.* from the LLM backfill.
 SPLITS = {
@@ -198,7 +198,8 @@ def compute(bets, players, frm=None, to=None, kind="bozo"):
                 heartbreaks.append({"betId": b["id"], "date": b["date"], "playerId": pid, "text": leg["text"],
                                     "margin": m, "game": en.get("game")})
 
-        for v in b.get("votes", []):
+        # An open vote stays secret until everyone's in (same rule as the ballot)
+        for v in b.get("votes", []) if votes_revealed(b) else []:
             votes[v["voterId"]][v["candidateId"]] += 1
         timeline.append({
             "betId": b["id"], "date": b["date"], "result": b.get("result"), "record": b.get("record"),

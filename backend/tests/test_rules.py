@@ -244,3 +244,16 @@ def test_ballot_is_nameless_shuffled_and_drops_leaky_commentary(fake, monkeypatc
     # "Joe" is fine (it's in the bet text) and so is "chalk" (one word of a pseudonym, not the pseudonym)
     assert by["Bet A"].get("headline") == "Burrow left it in the tunnel"
     assert "headline" not in by["Bet B"]  # named a group member -> dropped
+
+
+def test_vote_grudges_hidden_while_vote_open(fake):
+    bet = _bet_with([("p1", "a", 100), ("p2", "b", 100), ("p3", "c", 100)])
+    for pid, r in (("p1", "L"), ("p2", "L"), ("p3", "W")):
+        rules.upsert_leg(bet, pid, {"result": r}, "admin", admin=True)
+    rules.settle(bet, 10)
+    rules.cast_vote(bet, "p1", "p2")
+    players = [{"id": p, "slot": i} for i, p in enumerate(("p1", "p2", "p3"))]
+    assert stats.compute([bet], players)["votes"] == {}
+    rules.cast_vote(bet, "p2", "p1")
+    rules.cast_vote(bet, "p3", "p2")
+    assert stats.compute([bet], players)["votes"] == {"p1": {"p2": 1}, "p2": {"p1": 1}, "p3": {"p2": 1}}
