@@ -28,6 +28,8 @@ SYSTEM = (llm.BET_CONTEXT +
           "on the ballot: sarcastic sports-radio energy, short and funny. Rules:\n"
           "- Use ONLY the facts provided. Never invent stats, scores, injuries, quotes or storylines. If a fact is missing, "
           "roast the pick itself (the odds, the line, the matchup) instead.\n"
+          "- You only know final numbers, not how the game unfolded: don't describe game flow, momentum or who 'looked' good.\n"
+          "- Don't do math that isn't given (no vig or EV calculations); quote the numbers as provided.\n"
           "- Talk about the bet, never the bettor. Don't guess who made it, don't use anyone's name except athletes/teams in the bet.\n"
           "- Good angles: how far it missed, whether it was dead early or a late heartbreak, juice paid for a 'safe' leg, "
           "a long shot that never had a chance, favorite vs underdog, primetime, how it compares to the other losers.\n"
@@ -67,19 +69,22 @@ def facts(leg):
 
 
 def _names(players):
-    """Group members' names/nicknames, as words that must not show up in the commentary."""
-    out = set()
+    """What must not show up in the commentary: real names / Slack handles as words, pseudonyms as whole phrases
+    (pseudonyms are made of ordinary words like 'The Sloppy Prayer', so their single words are fair game)."""
+    words, phrases = set(), set()
     for p in players.values():
-        for n in [p.get("name"), p.get("pseudonym"), *(p.get("slackNames") or [])]:
-            for w in re.findall(r"[A-Za-z']{3,}", n or ""):
-                out.add(w.lower())
-    return out
+        for n in [p.get("name"), *(p.get("slackNames") or [])]:
+            words |= {w.lower() for w in re.findall(r"[A-Za-z']{3,}", n or "")}
+        if p.get("pseudonym"):
+            phrases.add(p["pseudonym"].lower())
+    return words, phrases
 
 
 def _leaks(text, banned, allowed_text):
-    words = {w.lower() for w in re.findall(r"[A-Za-z']{3,}", text)}
+    words, phrases = banned
+    said = {w.lower() for w in re.findall(r"[A-Za-z']{3,}", text)}
     ok = {w.lower() for w in re.findall(r"[A-Za-z']{3,}", allowed_text)}
-    return (words & banned) - ok
+    return ((said & words) - ok) | {ph for ph in phrases if ph in text.lower()}
 
 
 def build(bet, players, model=None):

@@ -234,12 +234,13 @@ def test_ballot_is_nameless_shuffled_and_drops_leaky_commentary(fake, monkeypatc
 
     def fake_llm(system, prompt, schema, **kw):
         seen["prompt"] = prompt
-        return {"takes": [{"label": "Bet A", "headline": "Burrow left it in the tunnel", "take": "Joe Burrow, -150, nothing."},
+        return {"takes": [{"label": "Bet A", "headline": "Burrow left it in the tunnel", "take": "Joe Burrow, -150, nothing. Pure chalk."},
                           {"label": "Bet B", "headline": "Classic Devan move", "take": "Bears."}]}
     monkeypatch.setattr(llm, "structured", fake_llm)
     ballot = commentary.build(bet, players)
     assert [b["label"] for b in ballot] == ["Bet A", "Bet B"] and {b["playerId"] for b in ballot} == {"p1", "p2"}
     assert "Smith" not in seen["prompt"] and "Devan" not in seen["prompt"] and "Kurtz" not in seen["prompt"]
     by = {b["label"]: b for b in ballot}
-    assert by["Bet A"].get("headline") == "Burrow left it in the tunnel"  # "Joe" is fine: it's in the bet text
+    # "Joe" is fine (it's in the bet text) and so is "chalk" (one word of a pseudonym, not the pseudonym)
+    assert by["Bet A"].get("headline") == "Burrow left it in the tunnel"
     assert "headline" not in by["Bet B"]  # named a group member -> dropped
