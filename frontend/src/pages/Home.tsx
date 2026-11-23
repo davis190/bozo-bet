@@ -4,7 +4,7 @@ import { useApi } from "../lib/api";
 import { login } from "../lib/auth";
 import { fmtDate, fmtMoney, fmtOdds, fmtPct, timeAgo } from "../lib/format";
 import { useSession } from "../lib/session";
-import type { Bet, Current, Stats } from "../lib/types";
+import type { Bet, Current, Player, Stats } from "../lib/types";
 import { LegCard } from "../components/LegCard";
 import { Avatar, Empty, ErrorBox, Section, Spinner } from "../components/ui";
 import { SubmitLeg } from "./SubmitLeg";
@@ -31,9 +31,9 @@ function sweat(bet: Bet) {
 }
 
 export default function Home() {
-  const { players, setPlayers, me, atLeast, role } = useSession();
+  const { players, setPlayers, me, atLeast, role, ready } = useSession();
   const { data, error, loading, reload } = useApi<Current>("/current");
-  const summary = useApi<Stats["group"]>(role === "public" ? "/summary" : null);
+  const summary = useApi<Stats["group"]>(ready && role === "public" ? "/summary" : null);
   const [submitOpen, setSubmitOpen] = useState(false);
 
   useEffect(() => {
@@ -65,9 +65,9 @@ export default function Home() {
       <div className="card p-5 relative overflow-hidden" style={{ background: "radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%), var(--surface)" }}>
         <div className="text-[11px] uppercase tracking-[0.2em] text-muted font-bold">Current Bozo</div>
         <div className="flex items-center gap-4 mt-3">
-          <Avatar p={bozo} size={72} crown />
+          <PlayerLink p={bozo}><Avatar p={bozo} size={72} crown /></PlayerLink>
           <div className="min-w-0">
-            <div className="font-display text-2xl leading-tight break-words">{bozo?.displayName ?? "TBD"}</div>
+            <div className="font-display text-2xl leading-tight break-words"><PlayerLink p={bozo}>{bozo?.displayName ?? "TBD"}</PlayerLink></div>
             <div className="text-sm text-ink-2 mt-1">{data?.lastBet?.nextBozoMethod ? HOW[data.lastBet.nextBozoMethod] : "Has to go to the casino. Thoughts and prayers."}</div>
           </div>
         </div>
@@ -95,8 +95,8 @@ export default function Home() {
             ))}
             {bet.status === "OPEN" && missing.map((p) => (
               <div key={p.id} className="card p-3.5 flex items-center gap-3 border-dashed opacity-70">
-                <Avatar p={p} size={40} dim />
-                <div className="text-sm"><b>{p.displayName}</b> <span className="text-muted">hasn't picked yet. Scared?</span></div>
+                <PlayerLink p={p}><Avatar p={p} size={40} dim /></PlayerLink>
+                <div className="text-sm"><PlayerLink p={p}><b>{p.displayName}</b></PlayerLink> <span className="text-muted">hasn't picked yet. Scared?</span></div>
               </div>
             ))}
           </div>
@@ -128,6 +128,13 @@ export default function Home() {
       {bet && <SubmitLeg open={submitOpen} onClose={() => setSubmitOpen(false)} bet={bet} existing={myLeg} onSaved={reload} />}
     </div>
   );
+}
+
+/** Wraps a player's avatar/name in a link to their page, for anyone allowed to see it. */
+function PlayerLink({ p, children }: { p?: Player; children: React.ReactNode }) {
+  const { atLeast } = useSession();
+  if (!p || !atLeast("viewer")) return <>{children}</>;
+  return <Link to={`/stats/${p.id}`} className="hover:underline">{children}</Link>;
 }
 
 function CallToAction({ bet, hasLeg, onSubmit }: { bet: Bet | null; hasLeg: boolean; onSubmit: () => void }) {

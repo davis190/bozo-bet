@@ -39,6 +39,7 @@ export default function Me() {
 
   return (
     <div>
+      {me && <Link to={`/stats/${me.id}`} className="text-sm text-muted block mb-3">← Your stats</Link>}
       <div className="card p-5 flex items-center gap-4">
         <Avatar p={me ? { ...me, avatar: form.avatar } : null} size={64} />
         <div className="min-w-0">

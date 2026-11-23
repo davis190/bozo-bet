@@ -16,7 +16,7 @@ const SPLIT_LABELS: Record<string, string> = {
 
 export default function PlayerPage() {
   const { id = "" } = useParams();
-  const { players, setPlayers } = useSession();
+  const { players, setPlayers, me } = useSession();
   const { range, setRange, qs } = useRange();
   const cur = useApi<{ players: Player[]; droughts: Record<string, Drought>; currentBozoId?: string }>("/current");
   const { data, error, loading } = useApi<Stats>(`/stats?${qs}`);
@@ -29,7 +29,10 @@ export default function PlayerPage() {
 
   return (
     <div>
-      <Link to="/stats" className="text-sm text-muted">← Stats</Link>
+      <div className="flex items-center justify-between">
+        <Link to="/stats" className="text-sm text-muted">← Stats</Link>
+        {id === me?.id && <Link to="/me" className="btn btn-ghost !min-h-9 text-sm">⚙️ Settings</Link>}
+      </div>
       <div className="flex items-center gap-4 mt-3">
         <Avatar p={p} size={64} />
         <div className="min-w-0">

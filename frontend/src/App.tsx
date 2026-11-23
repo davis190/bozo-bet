@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import { BrowserRouter, Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Link, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { handleCallback, login } from "./lib/auth";
 import { useSession, useTheme } from "./lib/session";
 import { Avatar, Spinner } from "./components/ui";
@@ -39,16 +39,20 @@ function Callback() {
   return err ? <div className="card p-6 mt-4 text-center">😬 {err} <Link className="text-accent underline block mt-2" to="/">Home</Link></div> : <Spinner label="Checking your ID at the door…" />;
 }
 
-const NAV = [
-  { to: "/", label: "Home", icon: "🏠", end: true },
-  { to: "/history", label: "History", icon: "📜" },
-  { to: "/stats", label: "Stats", icon: "📊" },
-  { to: "/me", label: "Me", icon: "🤡" },
-];
 
 function Shell() {
   useTheme();
-  const { me, role } = useSession();
+  const { me, role, atLeast } = useSession();
+  const { pathname } = useLocation();
+  // Me = your own stats page when you're one of the bozos (settings are a link from there); otherwise settings
+  const mine = me && atLeast("viewer") ? `/stats/${me.id}` : "/me";
+  const onMine = pathname === mine || pathname === "/me";
+  const nav = [
+    { to: "/", label: "Home", icon: "🏠", active: pathname === "/" },
+    { to: "/history", label: "History", icon: "📜", active: pathname.startsWith("/history") || pathname.startsWith("/bets") },
+    { to: "/stats", label: "Stats", icon: "📊", active: pathname.startsWith("/stats") && !onMine },
+    { to: mine, label: "Me", icon: "🤡", active: onMine },
+  ];
   return (
     <div className="mx-auto max-w-2xl px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-safe">
       <header className="flex items-center justify-between mb-4">
@@ -56,7 +60,7 @@ function Shell() {
         {role === "public" ? (
           <button className="btn btn-ghost !min-h-9 text-sm" onClick={() => login()}>Log in</button>
         ) : (
-          <Link to="/me" aria-label="Your profile"><Avatar p={me} size={34} /></Link>
+          <Link to={mine} aria-label="Your page"><Avatar p={me} size={34} /></Link>
         )}
       </header>
       <main className="overflow-x-clip">
@@ -75,11 +79,11 @@ function Shell() {
       </main>
       <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] backdrop-blur-md pb-[env(safe-area-inset-bottom)]" aria-label="Main">
         <div className="mx-auto max-w-2xl grid grid-cols-4">
-          {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.end}
-              className={({ isActive }) => `flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold ${isActive ? "text-ink" : "text-muted"}`}>
-              {({ isActive }) => (<><span className={`text-xl ${isActive ? "" : "grayscale opacity-70"}`} aria-hidden>{n.icon}</span>{n.label}</>)}
-            </NavLink>
+          {nav.map((n) => (
+            <Link key={n.label} to={n.to} aria-current={n.active ? "page" : undefined}
+              className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold ${n.active ? "text-ink" : "text-muted"}`}>
+              <span className={`text-xl ${n.active ? "" : "grayscale opacity-70"}`} aria-hidden>{n.icon}</span>{n.label}
+            </Link>
           ))}
         </div>
       </nav>

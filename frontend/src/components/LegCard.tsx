@@ -1,22 +1,30 @@
+import { Link } from "react-router-dom";
 import { fmtOdds, timeAgo } from "../lib/format";
+import { useSession } from "../lib/session";
 import type { Leg, Player } from "../lib/types";
 import { Avatar, Odds, StatusChip, legAccent } from "./ui";
 
 export function LegCard({ leg, player, isBozo, isMe, onClick }: { leg: Leg; player?: Player; isBozo?: boolean; isMe?: boolean; onClick?: () => void }) {
   const accent = legAccent(leg);
   const progress = leg.live?.progress;
-  const Tag = onClick ? "button" : "div";
+  const { atLeast } = useSession();
+  // Avatar + name go to the player's page; the rest of the card keeps its own action (e.g. edit your leg)
+  const href = player && atLeast("viewer") ? `/stats/${player.id}` : null;
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
   return (
-    <Tag
+    <div
       onClick={onClick}
-      className="card w-full text-left p-3.5 flex gap-3 items-start relative overflow-hidden"
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      className={`card w-full text-left p-3.5 flex gap-3 items-start relative overflow-hidden ${onClick ? "cursor-pointer" : ""}`}
       style={{ boxShadow: `inset 4px 0 0 ${accent}` }}
     >
-      <Avatar p={player} size={40} crown={isBozo} />
+      {href ? <Link to={href} onClick={stop} aria-label={`${player?.displayName}'s page`}><Avatar p={player} size={40} crown={isBozo} /></Link> : <Avatar p={player} size={40} crown={isBozo} />}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <div className="text-sm font-bold truncate">
-            {player?.displayName}
+            {href ? <Link to={href} onClick={stop} className="hover:underline">{player?.displayName}</Link> : player?.displayName}
             {isMe && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-accent">you</span>}
           </div>
           <StatusChip leg={leg} />
@@ -33,6 +41,6 @@ export function LegCard({ leg, player, isBozo, isMe, onClick }: { leg: Leg; play
         )}
         {leg.live?.updatedAt && <div className="text-[10px] text-muted mt-1">checked {timeAgo(leg.live.updatedAt)}</div>}
       </div>
-    </Tag>
+    </div>
   );
 }
