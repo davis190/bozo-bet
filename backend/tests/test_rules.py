@@ -211,3 +211,13 @@ def test_closing_opens_the_next_bet(fake):
     nxt = rules.current_bet(fake.list_bets())
     assert nxt["id"] == bet["nextBetId"] and nxt["status"] == "OPEN"
     assert nxt["bozoId"] == "p2" and nxt["wager"] == 15
+
+
+def test_lock_dates_the_bet_and_ids_stay_unique(fake, monkeypatch):
+    monkeypatch.setattr(rules, "today_ct", lambda: "2026-11-22")
+    bet = _bet_with([("p1", "a", 100)])
+    assert bet["date"] == "2026-11-22" and bet["id"] == "2026-11-20-1"
+    rules.lock(bet)  # re-lock (slip numbers edit) keeps the date
+    assert bet["date"] == "2026-11-22"
+    side = rules.create_bet("side", "2026-11-22", 5)
+    assert side["id"] == "2026-11-22-2"

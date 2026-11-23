@@ -2,7 +2,7 @@
 
 Bet lifecycle (bozo bets):
   OPEN     collecting legs
-  LOCKED   slip uploaded; legs frozen, live tracking runs
+  LOCKED   slip uploaded; legs frozen, live tracking runs; date becomes the lock date
   VOTING   2+ losers; everyone with a leg votes for a loser
   CLOSED   nextBozoId decided (hit -> same bozo again, 1 loser -> auto, reload -> reloader, else vote);
            the next OPEN bet is created right away with that bozo and the carried-over wager
@@ -77,11 +77,16 @@ def create_bet(kind, date, wager, bozo_id=None, title=None, betting_floor=None, 
     existing = existing if existing is not None else db.list_bets()
     if kind == "bozo" and current_bet(existing):
         raise ApiError(409, "There's already an active bozo bet. Close it first, bozo.")
-    same_day = [b for b in existing if b["date"] == date]
+    if seq is None:
+        # dates move at lock, so pick the first id that's actually free
+        ids = {b["id"] for b in existing}
+        seq = len([b for b in existing if b["date"] == date]) + 1
+        while f"{date}-{seq}" in ids:
+            seq += 1
     bet = {
-        "id": f"{date}-{len(same_day) + 1}" if seq is None else f"{date}-{seq}",
+        "id": f"{date}-{seq}",
         "date": date,
-        "seq": len(same_day) + 1 if seq is None else seq,
+        "seq": seq,
         "kind": kind,
         "title": title,
         "status": "OPEN",
@@ -138,6 +143,8 @@ def lock(bet, slip_key=None, total_odds=None, leg_odds=None):
     bet["totalOdds"] = total_odds or computed_odds(bet)
     if bet.get("wager") and bet.get("totalOdds"):
         bet["toWin"] = round(bet["wager"] * odds.to_decimal(bet["totalOdds"]), 2)
+    if bet["status"] == "OPEN":
+        bet["date"] = today_ct()  # the bet's date is when betting closed, closest to the games on it
     bet["status"] = "LOCKED"
     bet["lockedAt"] = now_iso()
     _touch(bet)
