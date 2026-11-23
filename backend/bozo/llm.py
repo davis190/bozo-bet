@@ -185,7 +185,8 @@ BET_CONTEXT = ("You help run 'Bozo Bet': a group of friends where each person pi
 
 def parse_leg(raw, model=None):
     return structured(
-        BET_CONTEXT + "Turn a casually typed bet into a structured leg. Never invent odds that weren't given. Today is " + today_ct(),
+        BET_CONTEXT + "Turn a casually typed bet into a structured leg. Never invent odds that weren't given. "
+        "'N+' means at least N, which is Over N-0.5 (2+ TDs = O 1.5, never O 2). Today is " + today_ct(),
         f"Leg as typed: {raw}", LEG_SCHEMA, model=model, task="parse")
 
 

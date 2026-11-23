@@ -9,6 +9,7 @@ Bet lifecycle (bozo bets):
 
 Side bets skip VOTING: OPEN -> LOCKED -> CLOSED.
 """
+import re
 from collections import Counter
 from datetime import date
 
@@ -128,7 +129,27 @@ def create_bet(kind, date, wager, bozo_id=None, title=None, betting_floor=None, 
     return bet
 
 
+PLUS = re.compile(r"(?<![\w.+-])(\d+)\s*\+(?!\d)")
+
+
+def plus_to_over(text):
+    """'Josh Allen 1+ INTs' -> 'Josh Allen O 0.5 INTs'. N+ means at least N, i.e. over N-0.5 (O N would push on exactly N)."""
+    return PLUS.sub(lambda m: f"O {int(m.group(1)) - 0.5:g}", text or "")
+
+
+def _fix_plus(fields):
+    """Apply plus_to_over to a leg's text, and make its parsed line agree."""
+    m = PLUS.search(fields.get("text") or "")
+    if not m:
+        return fields
+    fields = {**fields, "text": plus_to_over(fields["text"])}
+    if isinstance(fields.get("parsed"), dict):
+        fields["parsed"] = {**fields["parsed"], "line": int(m.group(1)) - 0.5, "market": "Over"}
+    return fields
+
+
 def upsert_leg(bet, player_id, fields, source, admin=False):
+    fields = _fix_plus(fields)
     if not admin:  # admins can correct anything, any time
         _require(bet, "OPEN")
     leg = next((l for l in bet["legs"] if l["playerId"] == player_id), None) or {"playerId": player_id}

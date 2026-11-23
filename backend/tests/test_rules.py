@@ -332,3 +332,13 @@ def test_yes_no_props_that_never_happened_are_not_heartbreaks():
     assert _never_happened({"track": {"kind": "player_stat", "line": 0.5, "direction": "over"}})
     assert not _never_happened({"track": {"kind": "player_stat", "line": 1.5, "direction": "over"}})
     assert not _never_happened({"track": {"kind": "spread", "line": 0.5}})
+
+
+def test_n_plus_means_over_n_minus_half(fake):
+    assert rules.plus_to_over("Josh Allen 1+ Interceptions") == "Josh Allen O 0.5 Interceptions"
+    assert rules.plus_to_over("herbert 2+ tuddies") == "herbert O 1.5 tuddies"
+    assert rules.plus_to_over("Bills +3 (-110)") == "Bills +3 (-110)"  # spreads/odds untouched
+    assert rules.plus_to_over("DET ML +120") == "DET ML +120"
+    bet = rules.create_bet("bozo", "2026-11-23", 10, bozo_id="p1")
+    leg = rules.upsert_leg(bet, "p4", {"text": "Allen 1+ INT", "parsed": {"line": 1, "market": "Over"}}, "app")
+    assert leg["text"] == "Allen O 0.5 INT" and leg["parsed"]["line"] == 0.5

@@ -149,7 +149,7 @@ def parse_leg(req):
     raw = (req.body.get("text") or "").strip()
     if not raw:
         raise ApiError(400, "Type a bet first")
-    parsed = llm.parse_leg(raw)
+    parsed = llm.parse_leg(rules.plus_to_over(raw))
     pid = auth.player_id(req.user)
     s = stats.compute(db.all_data(), db.list_players())
     me_ = next((p for p in s["players"] if p["playerId"] == pid), None)
