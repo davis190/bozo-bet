@@ -19,18 +19,18 @@ from bozo import odds  # noqa: E402
 # slot order == column order in the sheet; colors/avatars are fixed forever.
 # Colors are the validated categorical palette (dark-mode steps), in slot order.
 PLAYERS = [
-    {"id": "p01", "slot": 1, "name": "Clayton", "color": "#3987e5", "avatar": "🎯", "active": True,
+    {"id": "p01", "slot": 1, "name": "Clayton", "color": "#1d63c4", "avatar": "🎯", "active": True,
      "favoriteTeams": [{"league": "NFL", "team": "IND"}, {"league": "MLB", "team": "STL"}]},
-    {"id": "p02", "slot": 2, "name": "Kurtz", "color": "#d95926", "avatar": "🦬", "active": True,
+    {"id": "p02", "slot": 2, "name": "Kurtz", "color": "#d52209", "avatar": "🦬", "active": True,
      "favoriteTeams": [{"league": "NFL", "team": "BUF"}]},
-    {"id": "p03", "slot": 3, "name": "Sean", "color": "#199e70", "avatar": "👻", "active": False, "favoriteTeams": []},
-    {"id": "p04", "slot": 4, "name": "Chester", "color": "#c98500", "avatar": "🐆", "active": True,
+    {"id": "p03", "slot": 3, "name": "Sean", "color": "#0d750d", "avatar": "👻", "active": False, "favoriteTeams": []},
+    {"id": "p04", "slot": 4, "name": "Chester", "color": "#be8b26", "avatar": "🐆", "active": True,
      "favoriteTeams": [{"league": "NFL", "team": "CAR"}]},
-    {"id": "p05", "slot": 5, "name": "Joe", "color": "#d55181", "avatar": "🧀", "active": True,
+    {"id": "p05", "slot": 5, "name": "Joe", "color": "#944d84", "avatar": "🧀", "active": True,
      "favoriteTeams": [{"league": "NFL", "team": "GB"}, {"league": "MLB", "team": "MIL"}]},
-    {"id": "p06", "slot": 6, "name": "Devan", "color": "#9085e9", "avatar": "🍺", "active": True,
+    {"id": "p06", "slot": 6, "name": "Devan", "color": "#a66ef4", "avatar": "🍺", "active": True,
      "favoriteTeams": [{"league": "NFL", "team": "GB"}, {"league": "MLB", "team": "MIL"}]},
-    {"id": "p07", "slot": 7, "name": "Casey", "color": "#e66767", "avatar": "🎲", "active": True,
+    {"id": "p07", "slot": 7, "name": "Casey", "color": "#1da6b9", "avatar": "🎲", "active": True,
      "favoriteTeams": [{"league": "NFL", "team": "GB"}, {"league": "MLB", "team": "MIL"}]},
 ]
 SEED_PSEUDONYMS = ["Colts Apologist", "Wide Right Willie", "The Ghost of Bets Past", "Panther Prayer Circle",

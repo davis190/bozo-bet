@@ -21,8 +21,9 @@
   --critical: #d03b3b;
 
   /* player identity by slot — validated categorical palette (dark steps) */
-  --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500;
-  --p5: #d55181; --p6: #9085e9; --p7: #e66767;
+  /* validated all-pairs (dataviz validator, --pairs all) so 6 active lines on one chart stay distinct */
+  --p1: #1d63c4; --p2: #d52209; --p3: #0d750d; --p4: #be8b26;
+  --p5: #944d84; --p6: #a66ef4; --p7: #1da6b9;
 }
 
 :root[data-theme="light"] {
@@ -37,8 +38,8 @@
   --accent: #e0123a;
   --gold: #b8860b;
   --grid: #e1e0d9;
-  --p1: #2a78d6; --p2: #eb6834; --p3: #1baf7a; --p4: #eda100;
-  --p5: #e87ba4; --p6: #6250d6; --p7: #e34948;
+  --p1: #0e65b2; --p2: #cb260e; --p3: #4f6e24; --p4: #bb8a04;
+  --p5: #861d73; --p6: #a577f1; --p7: #2ea4a3;
 }
 
 @theme inline {
