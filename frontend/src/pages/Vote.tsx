@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { post, useApi } from "../lib/api";
 import { useSession } from "../lib/session";
 import type { BallotEntry, Bet, Current } from "../lib/types";
+import { VoteTally } from "../components/VoteTally";
 import { Avatar, Empty, ErrorBox, Odds, Section, Spinner } from "../components/ui";
 
 export default function Vote() {
@@ -41,8 +42,6 @@ export default function Vote() {
   }
 
   const ballot = ballotOf(bet);
-  const entry = (pid: string) => ballot.find((b) => b.playerId === pid);
-  const maxVotes = Math.max(1, ...Object.values(v.tally ?? {}));
 
   return (
     <div>
@@ -61,34 +60,9 @@ export default function Vote() {
             </div>
           )}
           <Section title="Tally">
-            <div className="card p-4 grid gap-4">
-              {ballot.map((b) => (
-                <div key={b.playerId}>
-                  <div className="flex justify-between gap-3 text-sm mb-1">
-                    <span className="min-w-0"><span className="font-bold">{b.label}</span> <span className="text-ink-2">{b.text}</span> <Odds o={b.odds} /></span>
-                    <span className="tabular font-bold">{v.tally?.[b.playerId] ?? 0}</span>
-                  </div>
-                  <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${((v.tally?.[b.playerId] ?? 0) / maxVotes) * 100}%`, background: "var(--accent)" }} />
-                  </div>
-                  <div className="text-xs text-muted mt-1">{b.headline ? `“${b.headline}” · ` : ""}picked by {players[b.playerId]?.displayName}</div>
-                </div>
-              ))}
-            </div>
-          </Section>
-          <Section title="Receipts">
-            <div className="card divide-y divide-[var(--border)]">
-              {(v.votes ?? []).map((x) => (
-                <div key={x.voterId} className="flex items-center gap-3 p-3 text-sm">
-                  <Avatar p={players[x.voterId]} size={28} />
-                  <span className="font-semibold">{players[x.voterId]?.displayName}</span>
-                  <span className="text-muted">→</span>
-                  <span className="font-semibold">{entry(x.candidateId)?.label}</span>
-                  <span className="text-ink-2 truncate min-w-0">{entry(x.candidateId)?.text}</span>
-                  {x.voterId === x.candidateId && <span className="chip bg-surface-2 text-gold ml-auto">self-snitch</span>}
-                </div>
-              ))}
-            </div>
+            <VoteTally votes={v.votes ?? []} winnerId={bet.nextBozoId}
+              rows={ballot.map((b) => ({ id: b.playerId, title: <>{b.label} · {players[b.playerId]?.displayName}</>,
+                subtitle: <>{b.text} <Odds o={b.odds} />{b.headline ? ` · “${b.headline}”` : ""}</> }))} />
           </Section>
         </>
       ) : (

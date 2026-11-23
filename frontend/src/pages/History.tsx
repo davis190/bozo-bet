@@ -5,6 +5,7 @@ import { fmtDate, fmtMoney, fmtOdds } from "../lib/format";
 import { useSession } from "../lib/session";
 import type { Bet, Player } from "../lib/types";
 import { LegCard } from "../components/LegCard";
+import { VoteTally } from "../components/VoteTally";
 import { Avatar, Empty, ErrorBox, Section, Spinner } from "../components/ui";
 
 const METHOD: Record<string, string> = { voted: "🗳️ voted", auto: "🎯 only loser", reload: "🔁 reload", stays: "💰 hit, goes again" };
@@ -72,8 +73,13 @@ export default function History() {
 
 export function BetDetail() {
   const { id } = useParams();
-  const { players } = useSession();
+  const { players, setPlayers } = useSession();
   const { data: bet, error, loading } = useApi<Bet>(`/bets/${id}`);
+  // Opened from a shared link: nothing has loaded the roster yet
+  const roster = useApi<{ players: Player[] }>(Object.keys(players).length ? null : "/current");
+  useEffect(() => {
+    if (roster.data) setPlayers(roster.data.players);
+  }, [roster.data, setPlayers]);
   if (loading && !bet) return <Spinner />;
   if (error || !bet) return <ErrorBox error={error} />;
   const legs = bet.legs.filter((l) => !l.carriedOver).sort((a, b) => (players[a.playerId]?.slot ?? 99) - (players[b.playerId]?.slot ?? 99));
@@ -97,13 +103,13 @@ export function BetDetail() {
       </Section>
       {bet.nextBozoId && (
         <Section title="Bozo">
-          <div className="card p-4 flex items-center gap-3">
-            <Avatar p={players[bet.nextBozoId]} size={44} crown />
-            <div><div className="font-bold">{players[bet.nextBozoId]?.displayName}</div><div className="text-xs text-muted">{METHOD[bet.nextBozoMethod ?? ""]}</div></div>
-          </div>
-          {bet.voting?.votes && (
-            <div className="card mt-2 divide-y divide-[var(--border)] text-sm">
-              {bet.voting.votes.map((v) => <div key={v.voterId} className="p-2.5 px-3">{players[v.voterId]?.displayName} → <b>{players[v.candidateId]?.displayName}</b></div>)}
+          {bet.voting?.votes ? (
+            <VoteTally votes={bet.voting.votes} winnerId={bet.nextBozoId}
+              rows={(bet.candidates ?? []).map((c) => ({ id: c, title: players[c]?.displayName ?? c, subtitle: bet.legs.find((l) => l.playerId === c)?.text }))} />
+          ) : (
+            <div className="card p-4 flex items-center gap-3">
+              <Avatar p={players[bet.nextBozoId]} size={44} crown />
+              <div><div className="font-bold">{players[bet.nextBozoId]?.displayName}</div><div className="text-xs text-muted">{METHOD[bet.nextBozoMethod ?? ""]}</div></div>
             </div>
           )}
         </Section>
