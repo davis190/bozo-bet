@@ -5,7 +5,7 @@ import logging
 import re
 
 from . import bets as rules
-from . import llm, odds
+from . import llm
 from .util import now_iso
 
 log = logging.getLogger()
@@ -17,22 +17,22 @@ SCHEMA = {
         "properties": {
             "label": {"type": "string", "description": "The ballot label exactly as given, e.g. 'Bet A'"},
             "headline": {"type": "string", "description": "Punchy verdict, max 8 words"},
-            "take": {"type": "string", "description": "2-3 sentences: why it lost and why it was a bad idea"},
+            "take": {"type": "string", "description": "1-2 sentence roast of the pick"},
         },
         "required": ["label", "headline", "take"]}}},
     "required": ["takes"],
 }
 
 SYSTEM = (llm.BET_CONTEXT +
-          "The parlay lost and the group is voting on which losing leg was the WORST BET. You are the color commentator "
-          "on the ballot: sarcastic sports-radio energy, short and funny. Rules:\n"
-          "- Use ONLY the facts provided. Never invent stats, scores, injuries, quotes or storylines. If a fact is missing, "
-          "roast the pick itself (the odds, the line, the matchup) instead.\n"
-          "- You only know final numbers, not how the game unfolded: don't describe game flow, momentum or who 'looked' good.\n"
-          "- Don't do math that isn't given (no vig or EV calculations); quote the numbers as provided.\n"
-          "- Talk about the bet, never the bettor. Don't guess who made it, don't use anyone's name except athletes/teams in the bet.\n"
-          "- Good angles: how far it missed, whether it was dead early or a late heartbreak, juice paid for a 'safe' leg, "
-          "a long shot that never had a chance, favorite vs underdog, primetime, how it compares to the other losers.\n"
+          "The parlay lost and the group is voting on which losing leg was the WORST BET. You write the roast on each "
+          "ballot card: a buddy in the group chat dunking on a bad pick. It's a roast first; facts are just the ammo.\n"
+          "- 1-2 short sentences, then stop. Land a punchline. No stat recaps.\n"
+          "- Use at most one or two facts (the miss, the final number, the odds). Every fact you use must be in the "
+          "facts given; never invent stats, injuries, game flow or storylines.\n"
+          "- Odds are fine as a plain number ('-175'). Never mention implied probability, percentages, vig, juice math, "
+          "closing lines, line movement or what 'the market' thought.\n"
+          "- Roast the bet, not the bettor. Never guess who made it; only athletes/teams in the bet get named.\n"
+          "- The headline is the joke in 8 words or less.\n"
           "- Nothing hateful or about real-life sensitive topics.")
 
 
@@ -49,7 +49,7 @@ def facts(leg):
     lines = [f"Bet: {leg.get('text')}"]
     o = leg.get("odds")
     if o is not None:
-        lines.append(f"Odds: {o:+d} (implied {odds.implied_prob(o):.0%})")
+        lines.append(f"Odds: {o:+d}")
     if leg.get("sgp"):
         lines.append("Same-game parlay leg")
     live = leg.get("live") or {}
@@ -59,7 +59,7 @@ def facts(leg):
     if isinstance(e.get("margin"), (int, float)):
         lines.append(f"Missed by: {abs(e['margin']):g}")
     for k, name in (("game", "Game"), ("dayOfWeek", "Day"), ("slot", "Time slot"), ("homeAway", "Side was"),
-                    ("favDog", "Side was the"), ("marketSpread", "Closing spread"), ("marketTotal", "Closing total"),
+                    ("favDog", "Side was the"),
                     ("seasonPhase", "Season"), ("propType", "Prop stat")):
         if e.get(k) not in (None, ""):
             lines.append(f"{name}: {e[k]}")
