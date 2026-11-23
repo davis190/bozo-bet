@@ -308,6 +308,12 @@ def slack_events(req):
     return reactions.handle(req.body)
 
 
+@route("POST", "/api/admin/reactions/sync", "admin")
+def admin_reactions_sync(req):
+    added, removed = reactions.sync()
+    return {"added": added, "removed": removed}
+
+
 @route("POST", "/api/admin/emoji", "admin")
 def admin_emoji(req):
     """Admin's call on an emoji the bot didn't know: up / down / neutral."""
@@ -355,6 +361,10 @@ OPEN_CHECKS = ("mismatch", "ambiguous", "unresolved", "review")
 
 @route("GET", "/api/admin/checks", "admin")
 def admin_checks(req):
+    try:
+        reactions.sync()  # catch anything the Events API missed before listing mystery emojis
+    except Exception:
+        log.exception("reaction sync failed")
     items = []
     for b in db.all_data():
         for l in rules.counted_legs(b):

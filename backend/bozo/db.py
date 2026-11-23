@@ -13,7 +13,7 @@ SETTINGS    / GLOBAL                                   app settings
 import os
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 
 from .util import from_dynamo, to_dynamo
 
@@ -136,6 +136,15 @@ def _attach_reactions(legs, rx):
     for r in rx:
         if r["playerId"] in by:
             by[r["playerId"]].setdefault("reactions", {}).setdefault(r["emoji"], []).append(r["user"])
+
+
+def list_slack_msgs():
+    return [dict(_strip(i), channel=i["pk"].split("#")[1], ts=i["pk"].split("#")[2])
+            for i in table().scan(FilterExpression=Attr("pk").begins_with("SLACKMSG#"))["Items"]]
+
+
+def list_reactions(bet_id, player_id):
+    return [from_dynamo(i) for i in _query_all(KeyConditionExpression=Key("pk").eq(f"BET#{bet_id}") & Key("sk").begins_with(f"RX#{player_id}#"))]
 
 
 def put_slack_msg(channel, ts, bet, player_id):

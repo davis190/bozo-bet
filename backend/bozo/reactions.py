@@ -80,3 +80,26 @@ def handle(payload):
     else:
         db.delete_reaction(msg, name, e.get("user"))
     return {"ok": True}
+
+
+def sync(since_days=21):
+    """Backup for the Events API: read reactions straight off recent tracked leg posts and make the stored ones match.
+    Needs only channels/groups:history. Returns (added, removed)."""
+    cutoff = time.time() - since_days * 86400
+    added = removed = 0
+    posts = [m for m in db.list_slack_msgs() if float(m["ts"]) >= cutoff]
+    by_leg = {}
+    for m in posts:
+        out = slack.api("conversations.history", channel=m["channel"], latest=m["ts"], oldest=m["ts"], inclusive="true", limit=1)
+        msg = (out.get("messages") or [{}])[0]
+        want = by_leg.setdefault((m["betId"], m["playerId"]), {"msg": m, "want": set()})
+        want["want"] |= {(base(r["name"]), u) for r in msg.get("reactions", []) for u in r.get("users", [])}
+    for (bet_id, pid), x in by_leg.items():
+        have = {(r["emoji"], r["user"]) for r in db.list_reactions(bet_id, pid)}
+        for emoji, user in x["want"] - have:
+            db.put_reaction(x["msg"], emoji, user)
+            added += 1
+        for emoji, user in have - x["want"]:
+            db.delete_reaction(x["msg"], emoji, user)
+            removed += 1
+    return added, removed

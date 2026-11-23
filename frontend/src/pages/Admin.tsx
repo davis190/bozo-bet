@@ -412,6 +412,12 @@ function DataChecks() {
   return (
     <div>
       {el}
+      <button className="btn btn-ghost w-full mt-4 text-sm" onClick={() => run(async () => {
+        const r = await post<{ added: number; removed: number }>("/admin/reactions/sync", {});
+        const fresh = await api<{ items: CheckItem[]; emojis?: MysteryEmoji[]; players: Player[] }>("/admin/checks");
+        setData(fresh);
+        return r;
+      }, "Reactions synced from Slack")}>🔄 Sync Slack reactions</button>
       {!!data?.emojis?.length && (
         <Section title="🤷 Mystery emojis" right={<span className="text-xs text-muted">from Slack reactions</span>}>
           <p className="text-xs text-muted mb-2 px-1">The bot doesn't know what these mean. Your call sticks for every past and future reaction.</p>

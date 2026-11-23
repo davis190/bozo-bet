@@ -4,6 +4,7 @@ Missing token/channel or Slack being down = log and skip, so nothing in the app 
 import json
 import logging
 import os
+import urllib.parse
 import urllib.request
 
 import boto3
@@ -77,6 +78,22 @@ def _money(x):
 
 def _next_open(bet):
     return f"\n:slot_machine: Next bet is open - get your legs in: <{SITE}|Bozo Bet>" if bet.get("nextBetId") else ""
+
+
+def api(method, **params):
+    """GET a Slack Web API method with the bot token -> parsed JSON ({} on failure)."""
+    token = _bot_token()
+    if not token:
+        return {}
+    try:
+        url = f"https://slack.com/api/{method}?" + urllib.parse.urlencode(params)
+        out = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"authorization": f"Bearer {token}"}), timeout=8).read())
+        if not out.get("ok"):
+            log.error("slack %s failed: %s", method, out.get("error"))
+        return out
+    except Exception:
+        log.exception("slack %s failed", method)
+        return {}
 
 
 def custom_emoji():
