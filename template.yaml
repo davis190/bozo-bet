@@ -27,12 +27,10 @@ Parameters:
   AdminPlayerId:
     Type: String
     Default: p01
-  FastModelId:
+  LlmModels:
     Type: String
-    Default: us.anthropic.claude-haiku-5-5
-  SmartModelId:
-    Type: String
-    Default: us.anthropic.claude-sonnet-5-5
+    Default: "{}"
+    Description: 'Per-task Bedrock model overrides as JSON, e.g. {"parse": "us.amazon.nova-micro-v1:0"}. Defaults live in backend/bozo/llm.py'
 
 Conditions:
   HasGoogle: !Not [!Equals [!Ref GoogleClientId, ""]]
@@ -51,8 +49,7 @@ Globals:
         SITE_URL: !Sub "https://${SiteDomain}"
         ADMIN_EMAILS: !Ref AdminEmails
         ADMIN_PLAYER_ID: !Ref AdminPlayerId
-        FAST_MODEL_ID: !Ref FastModelId
-        SMART_MODEL_ID: !Ref SmartModelId
+        LLM_MODELS: !Ref LlmModels
         TZ_NAME: America/Chicago
 
 Resources:

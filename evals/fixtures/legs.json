@@ -1,0 +1,1052 @@
+[
+ {
+  "input": "Sungjae Im top 30",
+  "sport": "Golf",
+  "market": "Over",
+  "subject": "Person",
+  "odds": null
+ },
+ {
+  "input": "Under 1.5 hole-in-one MX Open",
+  "sport": "Golf",
+  "market": "Under",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "under .5 hole in ones -175",
+  "sport": "Golf",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -175
+ },
+ {
+  "input": "Under .5 hole in ones -200",
+  "sport": "Golf",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -200
+ },
+ {
+  "input": "astros ml",
+  "sport": "MLB",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "Mets -1.5 vs Colorado -166",
+  "sport": "MLB",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -166
+ },
+ {
+  "input": "Padres ML v Pirates -198",
+  "sport": "MLB",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -198
+ },
+ {
+  "input": "Diamondbacks ML for 8/15",
+  "sport": "MLB",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "brewers/cubs total runs even +138",
+  "sport": "MLB",
+  "market": "Over",
+  "subject": "Game",
+  "odds": 138
+ },
+ {
+  "input": "Rockies / Yankees O 11 -180",
+  "sport": "MLB",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -180
+ },
+ {
+  "input": "Yankees Pirates over 7 -177",
+  "sport": "MLB",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -177
+ },
+ {
+  "input": "Cubs Phillies over 7.5 -139",
+  "sport": "MLB",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -139
+ },
+ {
+  "input": "Freddy Peralta over 4.5 Ks",
+  "sport": "MLB",
+  "market": "Over",
+  "subject": "Person",
+  "odds": null
+ },
+ {
+  "input": "Skenes O 5.5 strikeouts -180",
+  "sport": "MLB",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -180
+ },
+ {
+  "input": "Yelich O .5 hits -180",
+  "sport": "MLB",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -180
+ },
+ {
+  "input": "Isaac Collins O .5 hits -235",
+  "sport": "MLB",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -235
+ },
+ {
+  "input": "dodger -1.5 -130",
+  "sport": "MLB",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -130
+ },
+ {
+  "input": "det tigers -1.5 -134",
+  "sport": "MLB",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -134
+ },
+ {
+  "input": "Red Sox -1.5 vs Rockies -141",
+  "sport": "MLB",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -141
+ },
+ {
+  "input": "Diamondbacks -1.5 -117",
+  "sport": "MLB",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -117
+ },
+ {
+  "input": "cubs-angels under 9.5 -112",
+  "sport": "MLB",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -112
+ },
+ {
+  "input": "pacers ML -168",
+  "sport": "NBA",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -168
+ },
+ {
+  "input": "pacers/knicks o224.5 -112",
+  "sport": "NBA",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -112
+ },
+ {
+  "input": "LAL/MIN O 203.5 -134",
+  "sport": "NBA",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -134
+ },
+ {
+  "input": "Pacers/Cavs O228.5",
+  "sport": "NBA",
+  "market": "Over",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "okc/denver o 233.5 +100",
+  "sport": "NBA",
+  "market": "Over",
+  "subject": "Game",
+  "odds": 100
+ },
+ {
+  "input": "Donovan Mitchell O 23.5 pts -152",
+  "sport": "NBA",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -152
+ },
+ {
+  "input": "Lillard O3.5 Threes -105",
+  "sport": "NBA",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -105
+ },
+ {
+  "input": "Dame 3+ Three\u2019s -200",
+  "sport": "NBA",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -200
+ },
+ {
+  "input": "giannis rebounds o 12 rebounds",
+  "sport": "NBA",
+  "market": "Over",
+  "subject": "Person",
+  "odds": null
+ },
+ {
+  "input": "LA Lakers -5 -220",
+  "sport": "NBA",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -220
+ },
+ {
+  "input": "Mil Bucks -6.5 -240",
+  "sport": "NBA",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -240
+ },
+ {
+  "input": "phx suns -8.5",
+  "sport": "NBA",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "celtics -7 v mavs",
+  "sport": "NBA",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "Lakers Wizards ALT U228.5 (-177)",
+  "sport": "NBA",
+  "market": "Under",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "pacers / okc u 234 -256",
+  "sport": "NBA",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -256
+ },
+ {
+  "input": "Grizzlies/Clippers U 237 -112",
+  "sport": "NBA",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -112
+ },
+ {
+  "input": "Jalen Green U 24.5 -137",
+  "sport": "NBA",
+  "market": "Under",
+  "subject": "Person",
+  "odds": -137
+ },
+ {
+  "input": "ivica zubac u 30.5 pts+reb",
+  "sport": "NBA",
+  "market": "Under",
+  "subject": "Person",
+  "odds": null
+ },
+ {
+  "input": "UConn ML vs Oklahoma -245",
+  "sport": "NCAAB",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -245
+ },
+ {
+  "input": "st mary's ml vs vanderbilt -200",
+  "sport": "NCAAB",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -200
+ },
+ {
+  "input": "maryland ml v neb",
+  "sport": "NCAAB",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "Iowa / Clemson O 129.5 -105",
+  "sport": "NCAAB",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -105
+ },
+ {
+  "input": "Purdue vs Houston O132.5",
+  "sport": "NCAAB",
+  "market": "Over",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "houston v duke [alt] o 131.5 -182",
+  "sport": "NCAAB",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -182
+ },
+ {
+  "input": "New Mexico vs Boise St OVER 152.5 -107",
+  "sport": "NCAAB",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -107
+ },
+ {
+  "input": "kon knueppel o 1.5 3s made",
+  "sport": "NCAAB",
+  "market": "Over",
+  "subject": "Person",
+  "odds": null
+ },
+ {
+  "input": "Kon Knueppel O 12.5 -177",
+  "sport": "NCAAB",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -177
+ },
+ {
+  "input": "Purdue -25.5",
+  "sport": "NCAAB",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "michigan state +2 vs ole miss -200",
+  "sport": "NCAAB",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -200
+ },
+ {
+  "input": "miami (oh) +12.5 -110",
+  "sport": "NCAAB",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -110
+ },
+ {
+  "input": "arkansas +10.5",
+  "sport": "NCAAB",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "alabama / byu u 175 -108",
+  "sport": "NCAAB",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -108
+ },
+ {
+  "input": "Grand Canyon vs Maryland U 150 -110",
+  "sport": "NCAAB",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -110
+ },
+ {
+  "input": "alabama / byu 1h u 84.5 -122",
+  "sport": "NCAAB",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -122
+ },
+ {
+  "input": "Georgia Tech ML -200",
+  "sport": "NCAAF",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -200
+ },
+ {
+  "input": "nc state ml vs fsu +170",
+  "sport": "NCAAF",
+  "market": "ML",
+  "subject": "Team",
+  "odds": 170
+ },
+ {
+  "input": "Notre Dame ML",
+  "sport": "NCAAF",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "Georgia Tech ML vs Colorado",
+  "sport": "NCAAF",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "cin / dal o 43.5 -245",
+  "sport": "NCAAF",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -245
+ },
+ {
+  "input": "SDSU vs NDSU O47.5 -113",
+  "sport": "NCAAF",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -113
+ },
+ {
+  "input": "TAMU / MIZZ O 50.5 +104",
+  "sport": "NCAAF",
+  "market": "Over",
+  "subject": "Game",
+  "odds": 104
+ },
+ {
+  "input": "Appalachian State vs Charlotte O50 (alt) -148",
+  "sport": "NCAAF",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -148
+ },
+ {
+  "input": "jordan love o 1.5 tds -210",
+  "sport": "NCAAF",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -210
+ },
+ {
+  "input": "Stafford O1.5 passing TDs -118",
+  "sport": "NCAAF",
+  "market": "Over",
+  "subject": "Team",
+  "odds": -118
+ },
+ {
+  "input": "Washington -13.5 vs Wisconsin +104",
+  "sport": "NCAAF",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": 104
+ },
+ {
+  "input": "campbell university +42.5",
+  "sport": "NCAAF",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "Indiana -4 -105",
+  "sport": "NCAAF",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -105
+ },
+ {
+  "input": "Indiana -8.5 -110",
+  "sport": "NCAAF",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -110
+ },
+ {
+  "input": "falcons ml -159",
+  "sport": "NFL",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -159
+ },
+ {
+  "input": "bills ml -205",
+  "sport": "NFL",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -205
+ },
+ {
+  "input": "eagles ml -124",
+  "sport": "NFL",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -124
+ },
+ {
+  "input": "SF ML +100",
+  "sport": "NFL",
+  "market": "ML",
+  "subject": "Team",
+  "odds": 100
+ },
+ {
+  "input": "KC / HOU O 38 -182",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -182
+ },
+ {
+  "input": "PIT / CLE O 34.5",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "O44.5 Packers Lions (alt) -150",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -150
+ },
+ {
+  "input": "chiefs broncos alt over 36.5",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "tee higgins td",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Person",
+  "odds": null
+ },
+ {
+  "input": "Indiana jones O 1.5 tuddies",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Person",
+  "odds": null
+ },
+ {
+  "input": "saquon any time td -162",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -162
+ },
+ {
+  "input": "Joe Burrow OVER 285.5 passing yards -114",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -114
+ },
+ {
+  "input": "Dallas total TD over 2.5 -157",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Team",
+  "odds": -157
+ },
+ {
+  "input": "buffalo o 2.5 td -159",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Team",
+  "odds": -159
+ },
+ {
+  "input": "packers tt over 22.5",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "Cowboys O 3.5 TDs +100",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Team",
+  "odds": 100
+ },
+ {
+  "input": "Chiefs -3.5 -106",
+  "sport": "NFL",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -106
+ },
+ {
+  "input": "Patriots -10.5 -115",
+  "sport": "NFL",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -115
+ },
+ {
+  "input": "Colts -5.5 -165",
+  "sport": "NFL",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -165
+ },
+ {
+  "input": "NE -6.5",
+  "sport": "NFL",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "GB / DET U 48 +104",
+  "sport": "NFL",
+  "market": "Under",
+  "subject": "Game",
+  "odds": 104
+ },
+ {
+  "input": "packers/titans u 38 -109",
+  "sport": "NFL",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -109
+ },
+ {
+  "input": "Bills / Colts U 46.5 -110",
+  "sport": "NFL",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -110
+ },
+ {
+  "input": "Lions/bears U50.5 -105",
+  "sport": "NFL",
+  "market": "Under",
+  "subject": "Game",
+  "odds": -105
+ },
+ {
+  "input": "Mahomes U 259.5 pass yds -150",
+  "sport": "NFL",
+  "market": "Under",
+  "subject": "Person",
+  "odds": -150
+ },
+ {
+  "input": "Kareem Hunt UNDER 49.5 rushing yards",
+  "sport": "NFL",
+  "market": "Under",
+  "subject": "Person",
+  "odds": null
+ },
+ {
+  "input": "Drake Maye Under 219.5 passing yds -136",
+  "sport": "NFL",
+  "market": "Under",
+  "subject": "Person",
+  "odds": -136
+ },
+ {
+  "input": "Oilers ML +106",
+  "sport": "NHL",
+  "market": "ML",
+  "subject": "Team",
+  "odds": 106
+ },
+ {
+  "input": "Minnesota Wild ML +114",
+  "sport": "NHL",
+  "market": "ML",
+  "subject": "Team",
+  "odds": 114
+ },
+ {
+  "input": "Tie no bet (regular time) Edmonton",
+  "sport": "NHL",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "Lightning ML vs Sabres",
+  "sport": "NHL",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "lv vs min alt o4.5 -215",
+  "sport": "NHL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -215
+ },
+ {
+  "input": "vegas/edmonton o 5.5 goals inc ot",
+  "sport": "NHL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "panthers v leafs o 5.5 -105",
+  "sport": "NHL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -105
+ },
+ {
+  "input": "Hurricanes vs Devils O4.5 regular time [alt]",
+  "sport": "NHL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "Ovechkin 3+ SOG -196",
+  "sport": "NHL",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -196
+ },
+ {
+  "input": "star/jets u 6.5 goals",
+  "sport": "NHL",
+  "market": "Under",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "Pegula ML va Alexandrova -182",
+  "sport": "Other",
+  "market": "ML",
+  "subject": "Person",
+  "odds": -182
+ },
+ {
+  "input": "medvedev ml vs auger -210",
+  "sport": "Other",
+  "market": "ML",
+  "subject": "Person",
+  "odds": -210
+ },
+ {
+  "input": "montreal ml vs bc cfl -143",
+  "sport": "Other",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -143
+ },
+ {
+  "input": "IPL Sunrisers Hyderabad ML vs Lucknow Super Giants",
+  "sport": "Other",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "ICC Netherlands v Namibia - Netherlands W",
+  "sport": "Other",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "Sweden vs Finland O 5.5 -103",
+  "sport": "Other",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -103
+ },
+ {
+  "input": "australian rules - brisbane ml vs western bulldogs -210",
+  "sport": "Other",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -210
+ },
+ {
+  "input": "ICC (Cricket) - Pakistan v Bangladesh Century Scored in Match -134",
+  "sport": "Other",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -134
+ },
+ {
+  "input": "USA vs Canada O5.5 goals -106",
+  "sport": "Other",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -106
+ },
+ {
+  "input": "Caitlin Clark O18 point -220",
+  "sport": "Other",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -220
+ },
+ {
+  "input": "flamengo ml vs fluminese -129",
+  "sport": "Soccer",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -129
+ },
+ {
+  "input": "tie no bet nottingham forest to beat ipswitch town",
+  "sport": "Soccer",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "US ML vs Saudi Arabia -177",
+  "sport": "Soccer",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -177
+ },
+ {
+  "input": "Los Angeles FC ML -225",
+  "sport": "Soccer",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -225
+ },
+ {
+  "input": "Liverpool vs Tottenham Total Goals O4.5 +450",
+  "sport": "Soccer",
+  "market": "Over",
+  "subject": "Game",
+  "odds": 450
+ },
+ {
+  "input": "Everton vs Manchester City O2.5 -130",
+  "sport": "Soccer",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -130
+ },
+ {
+  "input": "Brighton v Fulham O2.5 -129",
+  "sport": "Soccer",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -129
+ },
+ {
+  "input": "us vs saudi arabia o 2.5",
+  "sport": "Soccer",
+  "market": "Over",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "Cole Palmer goal or assist (Chelsea vs Man U) -152",
+  "sport": "Soccer",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -152
+ },
+ {
+  "input": "Palmeiras and Botafoqo both teams to score -113",
+  "sport": "Soccer",
+  "market": "Over",
+  "subject": "Team",
+  "odds": -113
+ },
+ {
+  "input": "Liverpool and Tottenham to score",
+  "sport": "Soccer",
+  "market": "Over",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "Wolves vs Tottenham both teams to score",
+  "sport": "Soccer",
+  "market": "Over",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "Liverpool Arsenal both teams to score -180",
+  "sport": "Soccer",
+  "market": "Over",
+  "subject": "Team",
+  "odds": -180
+ },
+ {
+  "input": "USA ML",
+  "sport": "World Hockey",
+  "market": "ML",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "KC vs Buffalo O41.5 -200",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -200
+ },
+ {
+  "input": "PHI v STL O 7.5 -121",
+  "sport": "MLB",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -121
+ },
+ {
+  "input": "Colts ML -210",
+  "sport": "NFL",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -210
+ },
+ {
+  "input": "PIT / PHI O39 -177",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -177
+ },
+ {
+  "input": "chiefs / jags o 45.5 -118",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -118
+ },
+ {
+  "input": "Baker O 249.5 pass yds -165",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -165
+ },
+ {
+  "input": "byu -4.5 v arizona state",
+  "sport": "NCAAB",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": null
+ },
+ {
+  "input": "LAR O 3.5 TD +115",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Team",
+  "odds": 115
+ },
+ {
+  "input": "Lamar Jackson O1.5 TD thrown",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Person",
+  "odds": null
+ },
+ {
+  "input": "NE / TB O 50.5 +104",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": 104
+ },
+ {
+  "input": "JAX / DET O 43 -195",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -195
+ },
+ {
+  "input": "Kenneth Walker III O 84.5 rushing yards -115",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -115
+ },
+ {
+  "input": "Nottingham forest ML v Everton +107",
+  "sport": "Soccer",
+  "market": "ML",
+  "subject": "Team",
+  "odds": 107
+ },
+ {
+  "input": "Under 45.5",
+  "sport": "NFL",
+  "market": "Under",
+  "subject": "Game",
+  "odds": null
+ },
+ {
+  "input": "panthers +10.5 -108",
+  "sport": "NFL",
+  "market": "Spread",
+  "subject": "Team",
+  "odds": -108
+ },
+ {
+  "input": "D Henry anytime TD -265",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Person",
+  "odds": -265
+ },
+ {
+  "input": "O41.5 CLE v PIT -141",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Game",
+  "odds": -141
+ },
+ {
+  "input": "Brewers ML -225",
+  "sport": "MLB",
+  "market": "ML",
+  "subject": "Team",
+  "odds": -225
+ },
+ {
+  "input": "rodgers o 233.5 passing yards",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Person",
+  "odds": null
+ },
+ {
+  "input": "Bengals O 2.5 TDs +102",
+  "sport": "NFL",
+  "market": "Over",
+  "subject": "Team",
+  "odds": 102
+ }
+]

@@ -1,0 +1,480 @@
+[
+ {
+  "id": "2025-12-07-1",
+  "totalOdds": 4386,
+  "wager": 10.0,
+  "legs": [
+   {
+    "person": "Dutch",
+    "text": "Bucs -8.5 vs Saints",
+    "odds": -107
+   },
+   {
+    "person": "Ricky",
+    "text": "Bengals +5.5",
+    "odds": -109
+   },
+   {
+    "person": "Big Mike",
+    "text": "CHI / GB O 44.5",
+    "odds": -107
+   },
+   {
+    "person": "Moose",
+    "text": "Den / LV O 40.5",
+    "odds": -110
+   },
+   {
+    "person": "Sully",
+    "text": "SEA/ATL O44.5",
+    "odds": -112
+   },
+   {
+    "person": "Tony",
+    "text": "DEN -7.5",
+    "odds": -112
+   }
+  ],
+  "slip": "slips/2025-12-07-1.png",
+  "slipTotal": 4809
+ },
+ {
+  "id": "2026-11-06-1",
+  "totalOdds": 4905,
+  "wager": 10.0,
+  "legs": [
+   {
+    "person": "Ricky",
+    "text": "DEN -2.5",
+    "odds": -117
+   },
+   {
+    "person": "Tony",
+    "text": "NO -3",
+    "odds": -108
+   },
+   {
+    "person": "Dutch",
+    "text": "BUF v MIN O 44.5",
+    "odds": -109
+   },
+   {
+    "person": "Big Mike",
+    "text": "J-Love 1.5+ tuddies",
+    "odds": -107
+   },
+   {
+    "person": "Gus",
+    "text": "TB v CHI O 47.5",
+    "odds": -112
+   },
+   {
+    "person": "Moose",
+    "text": "DET -7",
+    "odds": -104
+   }
+  ],
+  "slip": "slips/2026-11-06-1.png",
+  "slipTotal": 4820
+ },
+ {
+  "id": "2026-09-25-1",
+  "totalOdds": 2934,
+  "wager": 10.0,
+  "legs": [
+   {
+    "person": "Tony",
+    "text": "Bills Team Total O 28.5",
+    "odds": -115
+   },
+   {
+    "person": "Moose",
+    "text": "Bills -7",
+    "odds": -115
+   },
+   {
+    "person": "Big Mike",
+    "text": "Panthers vs Browns O 41.5",
+    "odds": -112
+   },
+   {
+    "person": "Ricky",
+    "text": "Joe burrow 2+ tuddies",
+    "odds": -108
+   },
+   {
+    "person": "Gus",
+    "text": "SEA/WAS O 40 (-110)",
+    "odds": -109
+   },
+   {
+    "person": "Dutch",
+    "text": "KC -11",
+    "odds": -113
+   }
+  ],
+  "slip": "slips/2026-09-25-1.png",
+  "slipTotal": 4505
+ },
+ {
+  "id": "2024-10-12-1",
+  "totalOdds": 1686,
+  "wager": 5.0,
+  "legs": [
+   {
+    "person": "Ricky",
+    "text": "Bears / Jags U 48",
+    "odds": -186
+   },
+   {
+    "person": "Dutch",
+    "text": "Steelers ML",
+    "odds": -167
+   },
+   {
+    "person": "Moose",
+    "text": "Buccaneers ML",
+    "odds": -186
+   },
+   {
+    "person": "Sully",
+    "text": "Georgia Tech ML",
+    "odds": -200
+   },
+   {
+    "person": "Big Mike",
+    "text": "Jordan Love O 1.5 TDs",
+    "odds": -210
+   },
+   {
+    "person": "Gus",
+    "text": "Bears +3.5",
+    "odds": -220
+   },
+   {
+    "person": "Tony",
+    "text": "Bengals ML",
+    "odds": -186
+   }
+  ],
+  "slip": "slips/2024-10-12-1.png",
+  "slipTotal": 1772
+ },
+ {
+  "id": "2025-10-04-2",
+  "totalOdds": 2273,
+  "wager": 10.0,
+  "legs": [
+   {
+    "person": "Big Mike",
+    "text": "TB +4.5",
+    "odds": -140
+   },
+   {
+    "person": "Gus",
+    "text": "Lions -6.5 (alt) vs Bengals",
+    "odds": -194
+   },
+   {
+    "person": "Dutch",
+    "text": "Chiefs / Jags O 45.5",
+    "odds": -118
+   },
+   {
+    "person": "Moose",
+    "text": "Indiana jones O 1.5 tuddies",
+    "odds": -108
+   },
+   {
+    "person": "Ricky",
+    "text": "Cowboys/Jets O 45.5",
+    "odds": -142
+   },
+   {
+    "person": "Tony",
+    "text": "Eagles ML",
+    "odds": -220
+   }
+  ],
+  "slip": "slips/2025-10-04-2.png",
+  "slipTotal": 2191
+ },
+ {
+  "id": "2025-04-26-1",
+  "totalOdds": 2337,
+  "wager": 10.0,
+  "legs": [
+   {
+    "person": "Ricky",
+    "text": "LAL/MIN O 203.5",
+    "odds": -134
+   },
+   {
+    "person": "Gus",
+    "text": "Cubs Phillies over 7.5",
+    "odds": -139
+   },
+   {
+    "person": "Sully",
+    "text": "Hurricanes vs Devils O4.5 regular time [alt]",
+    "odds": -180
+   },
+   {
+    "person": "Dutch",
+    "text": "Minnesota Wild ML",
+    "odds": 114
+   },
+   {
+    "person": "Moose",
+    "text": "CLE/MIA O211",
+    "odds": -143
+   },
+   {
+    "person": "Tony",
+    "text": "Dame 3+ Three\u2019s",
+    "odds": -200
+   }
+  ],
+  "slip": "slips/2025-04-26-1.png",
+  "slipTotal": 2448
+ },
+ {
+  "id": "2025-12-14-1",
+  "totalOdds": 5883,
+  "wager": 10.0,
+  "legs": [
+   {
+    "person": "Sully",
+    "text": "LAC / KC O 41.5",
+    "odds": -112
+   },
+   {
+    "person": "Dutch",
+    "text": "Panthers -3",
+    "odds": -103
+   },
+   {
+    "person": "Tony",
+    "text": "Patriots ML",
+    "odds": 100
+   },
+   {
+    "person": "Ricky",
+    "text": "Bengals ML",
+    "odds": 125
+   },
+   {
+    "person": "Moose",
+    "text": "PIT/MIA O 41.5",
+    "odds": -117
+   },
+   {
+    "person": "Big Mike",
+    "text": "Rams -6",
+    "odds": -114
+   }
+  ],
+  "slip": "slips/2025-12-14-1.png",
+  "slipTotal": 5745
+ },
+ {
+  "id": "2025-11-22-1",
+  "totalOdds": 9390,
+  "wager": 10.0,
+  "legs": [
+   {
+    "person": "Sully",
+    "text": "Bucs / Rams Over 50.5",
+    "odds": 102
+   },
+   {
+    "person": "Ricky",
+    "text": "Jaguars -3.5 vs Cardinals",
+    "odds": 106
+   },
+   {
+    "person": "Moose",
+    "text": "NC State ML vs FSU",
+    "odds": 170
+   },
+   {
+    "person": "Tony",
+    "text": "Jets/ravens O 45.5",
+    "odds": 102
+   },
+   {
+    "person": "Dutch",
+    "text": "Sea/Ten O 41",
+    "odds": 107
+   },
+   {
+    "person": "Gus",
+    "text": "SF -7.5 vs CAR",
+    "odds": 102
+   }
+  ],
+  "slip": "slips/2025-11-22-1.png",
+  "slipTotal": 9390
+ },
+ {
+  "id": "2024-12-14-1",
+  "totalOdds": 2575,
+  "wager": 5.0,
+  "legs": [
+   {
+    "person": "Big Mike",
+    "text": "PIT / PHI O39",
+    "odds": -177
+   },
+   {
+    "person": "Dutch",
+    "text": "Chiefs -2",
+    "odds": -182
+   },
+   {
+    "person": "Ricky",
+    "text": "Rodgers O 233.5 passing yards",
+    "odds": -113
+   },
+   {
+    "person": "Moose",
+    "text": "Army vs Navy O36.5",
+    "odds": -177
+   },
+   {
+    "person": "Tony",
+    "text": "Jared Goff over 1.5 TD",
+    "odds": -159
+   },
+   {
+    "person": "Gus",
+    "text": "Burrow O 1.5 TD thrown",
+    "odds": -220
+   },
+   {
+    "person": "Sully",
+    "text": "Broncos ML",
+    "odds": -210
+   }
+  ],
+  "slip": "slips/2024-12-14-1.png",
+  "slipTotal": 2402
+ },
+ {
+  "id": "2026-01-25-1",
+  "totalOdds": 3650,
+  "wager": 15.0,
+  "legs": [
+   {
+    "person": "Sully",
+    "text": "Kenneth Walker III O 84.5 rushing yards",
+    "odds": -115
+   },
+   {
+    "person": "Moose",
+    "text": "Ken Walker ATD",
+    "odds": -159
+   },
+   {
+    "person": "Dutch",
+    "text": "Drake Maye O1.5 Passing TDs",
+    "odds": 112
+   },
+   {
+    "person": "Gus",
+    "text": "Kyren Williams 60+ Rush Yds",
+    "odds": -120
+   },
+   {
+    "person": "Tony",
+    "text": "Stafford O1.5 passing TDs",
+    "odds": -118
+   },
+   {
+    "person": "Ricky",
+    "text": "NE -5",
+    "odds": -110
+   }
+  ],
+  "slip": "slips/2026-01-25-1.png",
+  "slipTotal": 4075
+ },
+ {
+  "id": "2026-01-18-1",
+  "totalOdds": 4067,
+  "wager": 10.0,
+  "legs": [
+   {
+    "person": "Ricky",
+    "text": "BUF / DEN 1H Under 23.5",
+    "odds": -120
+   },
+   {
+    "person": "Dutch",
+    "text": "Indiana -8.5",
+    "odds": -110
+   },
+   {
+    "person": "Gus",
+    "text": "BUF / DEN 2H Over 22.5",
+    "odds": -120
+   },
+   {
+    "person": "Tony",
+    "text": "49ers / SEA U 44.5",
+    "odds": -120
+   },
+   {
+    "person": "Sully",
+    "text": "49ers +7.5",
+    "odds": -120
+   },
+   {
+    "person": "Big Mike",
+    "text": "CMC TD",
+    "odds": -120
+   }
+  ],
+  "slip": "slips/2026-01-18-1.png",
+  "slipTotal": 3854
+ },
+ {
+  "id": "2025-04-05-1",
+  "totalOdds": 821,
+  "wager": 10.0,
+  "legs": [
+   {
+    "person": "Dutch",
+    "text": "Kon Knueppel O 12.5",
+    "odds": -177
+   },
+   {
+    "person": "Tony",
+    "text": "Yankees Pirates over 7",
+    "odds": -177
+   },
+   {
+    "person": "Sully",
+    "text": "Houston v Duke [alt] O 131.5",
+    "odds": -182
+   },
+   {
+    "person": "Moose",
+    "text": "Kon Knueppel O 1.5 3s made",
+    "odds": -182
+   },
+   {
+    "person": "Big Mike",
+    "text": "Auburn +5.5 v Florida",
+    "odds": -162
+   },
+   {
+    "person": "Ricky",
+    "text": "Yankees ML",
+    "odds": -165
+   }
+  ],
+  "slip": "slips/2025-04-05-1.png",
+  "slipTotal": 1427
+ }
+]

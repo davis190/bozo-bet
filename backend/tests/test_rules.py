@@ -117,3 +117,12 @@ def test_stats_luck_and_bozo_counts(fake):
     p2 = next(p for p in s["players"] if p["playerId"] == "p2")
     assert p1["luck"] == 0.5 and p1["units"] == 1.0 and p1["bozoCount"] == 1
     assert p2["autoBozo"] == 1 and p2["soleKiller"] == 1
+
+
+def test_llm_schema_repair_and_required():
+    from bozo.llm import _validate
+    schema = {"type": "object", "required": ["legs"], "properties": {"legs": {"type": "array", "items": {
+        "type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}}}}}
+    out = {"legs": '[{"text": "Bills ML"}]'}  # cheap models love stringified JSON
+    assert _validate(out, schema) == [] and out["legs"][0]["text"] == "Bills ML"
+    assert _validate({"legs": [{}]}, schema) == ["$.legs[0].text is required"]

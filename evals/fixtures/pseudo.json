@@ -1,0 +1,238 @@
+[
+ [
+  {
+   "id": "x0",
+   "recent": [
+    "KC -8 (W)",
+    "SF -2.5 (L)",
+    "Commandos -5.5 (W)",
+    "DEN -2.5 (W)",
+    "KC ML (W)",
+    "Panthers ML (W)"
+   ],
+   "roastLevel": "mild",
+   "bannedWords": [
+    "clown"
+   ]
+  },
+  {
+   "id": "x1",
+   "recent": [
+    "Brock Bowers Over 6.5 receptions (L)",
+    "Kyler Murray Under 207.5 Yards (W)",
+    "Browns +3.5 (L)",
+    "NO -3 (L)",
+    "Jags -5.5 (W)",
+    "Josh Allen Over 1.5 TD Passes (L)"
+   ],
+   "roastLevel": "spicy",
+   "bannedWords": []
+  },
+  {
+   "id": "x2",
+   "recent": [
+    "Colts -7 (L)",
+    "Dallas Philly O44 (W)",
+    "Cowboys -6,5 (L)",
+    "BUF v MIN O 44.5 (L)",
+    "Seahawks ML (W)",
+    "Jags vs Giants O46 (pending)"
+   ],
+   "roastLevel": "no mercy",
+   "bannedWords": []
+  },
+  {
+   "id": "x3",
+   "recent": [
+    "herbet 2+ tuddies passing (L)",
+    "Kenneth walker ATD (L)",
+    "Steelers/browns O 39.5 (L)",
+    "J-Love 1.5+ tuddies (W)",
+    "J-Love 1.5+ tuddies (L)",
+    "Bryce Young O 1.5 TD (W)"
+   ],
+   "roastLevel": "mild",
+   "bannedWords": []
+  },
+  {
+   "id": "x4",
+   "recent": [
+    "SF/WAS O5.5 TD (L)",
+    "NY / HOU O 42.5 (W)",
+    "PHI/WAS O40.5 (L)",
+    "TB v CHI O 47.5 (W)",
+    "DET ML (W)",
+    "SF ML (pending)"
+   ],
+   "roastLevel": "spicy",
+   "bannedWords": []
+  },
+  {
+   "id": "x5",
+   "recent": [
+    "49ers -7.5 (L)",
+    "GB/DET O53.5 (L)",
+    "Tb/atl over 45.5 (L)",
+    "DET -7 (W)",
+    "Josh Allen 20+ rush yds (L)",
+    "Chiefs -16 (W)"
+   ],
+   "roastLevel": "no mercy",
+   "bannedWords": []
+  }
+ ],
+ [
+  {
+   "id": "x0",
+   "recent": [
+    "Colts -5 (L)",
+    "NE / TB O 50.5 (W)",
+    "KC / DEN O 46.5 (L)",
+    "Bucs / Rams Over 50.5 (L)",
+    "GB / DET U 48 (L)"
+   ],
+   "roastLevel": "mild",
+   "bannedWords": [
+    "clown"
+   ]
+  },
+  {
+   "id": "x1",
+   "recent": [
+    "SF -3 (W)",
+    "Washington -13.5 vs Wisconsin (L)",
+    "DET ML (L)",
+    "Jaguars -3.5 vs Cardinals (L)",
+    "KC/DAL over 3.5 field goals (L)"
+   ],
+   "roastLevel": "spicy",
+   "bannedWords": []
+  },
+  {
+   "id": "x2",
+   "recent": [
+    "Vanderbilt ML vs Texas (L)",
+    "Cowboys O 3.5 TDs (L)",
+    "Raven Vikings O50.5 (L)",
+    "Bills Bucs O 48.5 (W)",
+    "NC State ML vs FSU (W)",
+    "Chiefs Cowboys O 53 (W)"
+   ],
+   "roastLevel": "no mercy",
+   "bannedWords": []
+  },
+  {
+   "id": "x3",
+   "recent": [
+    "LAR O 3.5 TD (W)",
+    "saquon Barkley anytime tuddy (L)",
+    "LA Rams -4.5 (L)",
+    "Jets/ravens O 45.5 (L)",
+    "Bengals O 2.5 TDs (L)"
+   ],
+   "roastLevel": "mild",
+   "bannedWords": []
+  },
+  {
+   "id": "x4",
+   "recent": [
+    "IND/PIT O51.5 (L)",
+    "LAR/SF O 51.5 (W)",
+    "BAL /CLE O41.5 (L)",
+    "Sea/Ten O 41 (W)",
+    "Chase Brown 4+ receptions (W)"
+   ],
+   "roastLevel": "spicy",
+   "bannedWords": []
+  },
+  {
+   "id": "x5",
+   "recent": [
+    "Packers O 3.5 TDs (L)",
+    "TAMU / MIZZ O 50.5 (W)",
+    "SEA / LAR O 50.5 (L)",
+    "SF -7.5 vs CAR (W)",
+    "Gibbs +40 rec yds (L)"
+   ],
+   "roastLevel": "no mercy",
+   "bannedWords": []
+  }
+ ],
+ [
+  {
+   "id": "x0",
+   "recent": [
+    "Giannis Rebounds O 19.5 Reb+Ast (L)",
+    "LAL/MIN O 203.5 (W)",
+    "Karl-Anthony Towns O 21.5 pts (L)",
+    "Dodgers ML (L)",
+    "Ovechkin 3+ SOG (W)",
+    "Rockies / Yankees O 11 (L)"
+   ],
+   "roastLevel": "mild",
+   "bannedWords": [
+    "clown"
+   ]
+  },
+  {
+   "id": "x1",
+   "recent": [
+    "Cubs Phillies over 7.5 (L)"
+   ],
+   "roastLevel": "spicy",
+   "bannedWords": []
+  },
+  {
+   "id": "x2",
+   "recent": [
+    "Everton vs Manchester City O2.5 (L)",
+    "Hurricanes vs Devils O4.5 regular time [alt] (L)",
+    "LV vs Min alt O4.5 (W)",
+    "Liverpool Arsenal both teams to score (W)",
+    "Cole Palmer goal or assist (Chelsea vs Man U) (L)",
+    "Liverpool Crystal Palace O3.5 (L)"
+   ],
+   "roastLevel": "no mercy",
+   "bannedWords": []
+  },
+  {
+   "id": "x3",
+   "recent": [
+    "Celtics/magic O205.5 (L)",
+    "Minnesota Wild ML (L)",
+    "Pacers / Cavs O 229.5 (W)",
+    "Pacers/Cavs O228.5 (W)",
+    "Capitals ML (L)",
+    "Oilers ML (W)"
+   ],
+   "roastLevel": "mild",
+   "bannedWords": []
+  },
+  {
+   "id": "x4",
+   "recent": [
+    "Bucks/Pacers Saturday O226 (L)",
+    "CLE/MIA O211 (P)",
+    "Rockets Warrior O203.5 (W)",
+    "OKC/Denver O 233.5 (L)",
+    "Panthers v Leafs O 5.5 (L)",
+    "Pacers/Knicks O224.5 (L)"
+   ],
+   "roastLevel": "spicy",
+   "bannedWords": []
+  },
+  {
+   "id": "x5",
+   "recent": [
+    "Giannis Rebounds O 12 Rebounds (W)",
+    "Dame 3+ Three\u2019s (L)",
+    "Brwers/Sox O 7.5 (W)",
+    "Vegas/Edmonton O 5.5 Goals Inc OT (W)",
+    "Star/Jets U 6.5 goals (W)",
+    "Skenes O 5.5 strikeouts (W)"
+   ],
+   "roastLevel": "no mercy",
+   "bannedWords": []
+  }
+ ]
+]

@@ -306,7 +306,7 @@ function SlipPanel({ bet, run, onChange }: { bet: Bet; run: ReturnType<typeof us
 }
 
 // ---------------- Slack paste ----------------
-interface SlackLeg extends ParsedLeg { person: string; playerName?: string | null; playerId?: string | null; evidence: string }
+interface SlackLeg extends ParsedLeg { slackName: string; bettor?: string | null; playerId?: string | null; evidence: string }
 
 function SlackImport() {
   const { players, setPlayers } = useSession();
@@ -336,7 +336,7 @@ function SlackImport() {
               <div key={i} className="card p-3 grid gap-2">
                 <div className="flex gap-2 items-center">
                   <select className="input !w-auto" value={l.playerId ?? ""} onChange={(e) => setLegs(legs.map((x, j) => (j === i ? { ...x, playerId: e.target.value || null } : x)))}>
-                    <option value="">“{l.person}” → ?</option>
+                    <option value="">“{l.slackName}” → ?</option>
                     {Object.values(players).map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
                   </select>
                   <span className="text-xs text-muted ml-auto">{Math.round(l.confidence * 100)}%</span>

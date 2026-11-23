@@ -1,4 +1,8 @@
-"""Bedrock helpers. The LLM classifies, extracts and jokes; it never computes stats or money."""
+"""Bedrock helpers. The LLM classifies, extracts and jokes; it never computes stats or money.
+
+Each task routes to its own model so cheap models handle cheap jobs. Defaults are the eval winners
+(see evals/); override per task with the LLM_MODELS env var, e.g. '{"parse": "us.amazon.nova-micro-v1:0"}'.
+"""
 import json
 import logging
 import os
@@ -8,10 +12,19 @@ import boto3
 from .util import ApiError, today_ct
 
 log = logging.getLogger()
-FAST = os.environ.get("FAST_MODEL_ID", "us.anthropic.claude-haiku-5-5")
-SMART = os.environ.get("SMART_MODEL_ID", "us.anthropic.claude-sonnet-5-5")
+
+DEFAULT_MODELS = {
+    "parse": "global.anthropic.claude-haiku-4-5-20251001-v1:0",    # free-text leg -> structured
+    "slack": "global.anthropic.claude-haiku-4-5-20251001-v1:0",    # Slack paste -> legs
+    "slip": "global.anthropic.claude-haiku-4-5-20251001-v1:0",     # ticket photo -> odds
+    "slip_fallback": "global.anthropic.claude-sonnet-4-6",         # low-confidence slip retry
+    "fun": "global.anthropic.claude-haiku-4-5-20251001-v1:0",      # pseudonyms, one-liners
+    "writer": "global.anthropic.claude-sonnet-4-6",                # recaps, scouting reports
+}
+MODELS = {**DEFAULT_MODELS, **json.loads(os.environ.get("LLM_MODELS") or "{}")}
 
 _client = None
+usage_hook = None  # evals set this to collect (model, usage, latencyMs) per call
 
 
 def client():
@@ -20,36 +33,92 @@ def client():
     return _client
 
 
-def structured(system, content, schema, model=FAST, max_tokens=2000):
-    """Force a single tool call so the answer always parses. `content` is a str or Converse content blocks."""
-    if isinstance(content, str):
-        content = [{"text": content}]
+def _converse(**kwargs):
     try:
-        resp = client().converse(
-            modelId=model,
-            system=[{"text": system}],
-            messages=[{"role": "user", "content": content}],
-            inferenceConfig={"maxTokens": max_tokens},
-            toolConfig={
-                "tools": [{"toolSpec": {"name": "respond", "description": "Return the answer", "inputSchema": {"json": schema}}}],
-                "toolChoice": {"tool": {"name": "respond"}},
-            },
-        )
+        resp = client().converse(**kwargs)
     except client().exceptions.AccessDeniedException as e:
-        raise ApiError(503, f"Bedrock isn't available yet: {e}") from e
+        raise ApiError(503, f"Bedrock model unavailable: {e}") from e
+    if usage_hook:
+        usage_hook(kwargs["modelId"], resp.get("usage", {}), resp.get("metrics", {}).get("latencyMs"))
+    return resp
+
+
+def _tool_input(resp):
     for block in resp["output"]["message"]["content"]:
         if "toolUse" in block:
             return block["toolUse"]["input"]
-    raise ApiError(502, "Model didn't answer in the expected shape")
+    return None
 
 
-def text(system, prompt, model=FAST, max_tokens=800):
+def structured(system, content, schema, model=None, max_tokens=2000, task="parse"):
+    """Force a single tool call so the answer always parses. `content` is a str or Converse content blocks."""
+    model = model or MODELS[task]
+    if isinstance(content, str):
+        content = [{"text": content}]
+    tool = {"tools": [{"toolSpec": {"name": "respond", "description": "Return the answer", "inputSchema": {"json": schema}}}]}
+    base = dict(modelId=model, messages=[{"role": "user", "content": content}], inferenceConfig={"maxTokens": max_tokens})
     try:
-        resp = client().converse(modelId=model, system=[{"text": system}],
-                                 messages=[{"role": "user", "content": [{"text": prompt}]}],
-                                 inferenceConfig={"maxTokens": max_tokens})
-    except client().exceptions.AccessDeniedException as e:
-        raise ApiError(503, f"Bedrock isn't available yet: {e}") from e
+        resp = _converse(system=[{"text": system}], toolConfig={**tool, "toolChoice": {"tool": {"name": "respond"}}}, **base)
+    except client().exceptions.ValidationException as e:
+        if "tool" not in str(e).lower():
+            raise
+        # Some models (e.g. Llama) reject forced tool choice; ask nicely instead
+        resp = _converse(system=[{"text": system + " Always answer by calling the respond tool."}], toolConfig=tool, **base)
+    out = _tool_input(resp)
+    problems = _validate(out, schema) if out is not None else ["no tool call"]
+    if problems:
+        # One retry with the complaint attached; cheap models usually fix themselves
+        log.info("structured: %s failed schema (%s), retrying", model, problems[:3])
+        fix = [{"text": f"Your previous answer was invalid: {'; '.join(problems[:5])}. Answer again by calling respond with every required field."}]
+        try:
+            resp = _converse(system=[{"text": system}], toolConfig={**tool, "toolChoice": {"tool": {"name": "respond"}}},
+                             **{**base, "messages": [{"role": "user", "content": content + fix}]})
+        except client().exceptions.ValidationException:
+            resp = _converse(system=[{"text": system + " Always answer by calling the respond tool."}], toolConfig=tool,
+                             **{**base, "messages": [{"role": "user", "content": content + fix}]})
+        out = _tool_input(resp)
+        problems = _validate(out, schema) if out is not None else ["no tool call"]
+        if problems:
+            raise ApiError(502, f"Model didn't answer in the expected shape: {problems[:3]}")
+    return out
+
+
+def _validate(value, schema, path="$"):
+    """Minimal JSON-schema check (required + object/array types) that also repairs
+    a common cheap-model habit: returning nested objects/arrays as JSON strings. Mutates in place."""
+    problems = []
+    t = schema.get("type")
+    if t == "object":
+        if not isinstance(value, dict):
+            return [f"{path} should be an object"]
+        for k in schema.get("required", []):
+            if value.get(k) in (None, ""):
+                problems.append(f"{path}.{k} is required")
+        for k, sub in (schema.get("properties") or {}).items():
+            if k not in value:
+                continue
+            if sub.get("type") in ("object", "array") and isinstance(value[k], str):
+                try:
+                    value[k] = json.loads(value[k])
+                except ValueError:
+                    pass
+            problems += _validate(value[k], sub, f"{path}.{k}")
+    elif t == "array":
+        if not isinstance(value, list):
+            return [f"{path} should be an array"]
+        for i, item in enumerate(value):
+            if (schema.get("items") or {}).get("type") == "object" and isinstance(item, str):
+                try:
+                    value[i] = item = json.loads(item)
+                except ValueError:
+                    pass
+            problems += _validate(item, schema.get("items") or {}, f"{path}[{i}]")
+    return problems
+
+
+def text(system, prompt, model=None, max_tokens=800, task="writer"):
+    resp = _converse(modelId=model or MODELS[task], system=[{"text": system}],
+                     messages=[{"role": "user", "content": [{"text": prompt}]}], inferenceConfig={"maxTokens": max_tokens})
     return "".join(b.get("text", "") for b in resp["output"]["message"]["content"]).strip()
 
 
@@ -58,9 +127,11 @@ PARSED_SCHEMA = {
     "type": "object",
     "properties": {
         "sport": {"type": "string", "enum": ["NFL", "NCAAF", "NBA", "NCAAB", "MLB", "NHL", "Golf", "Soccer", "Other"]},
-        "market": {"type": "string", "enum": ["ML", "Spread", "Over", "Under", "Prop", "Other"],
-                   "description": "ML=moneyline, Spread incl. alt lines, Over/Under incl. player and team props with o/u, Prop=yes/no props like anytime TD"},
-        "subject": {"type": "string", "enum": ["Team", "Person", "Game"]},
+        "market": {"type": "string", "enum": ["ML", "Spread", "Over", "Under"],
+                   "description": "ML = moneyline (also 'to win'). Spread incl. alt lines and +/- points. Over/Under for any total "
+                                  "or prop with o/u, including player props. Yes/no props (anytime TD, to score, 2+ TDs) count as Over."},
+        "subject": {"type": "string", "enum": ["Team", "Person", "Game"],
+                    "description": "Game = both teams' combined total (e.g. 'GB/CHI O 44'). Team = one team's ML/spread/team total. Person = a player prop."},
         "teams": {"type": "array", "items": {"type": "string"}, "description": "Team abbreviations involved, e.g. GB, CHI"},
         "player": {"type": "string"},
         "stat": {"type": "string", "description": "e.g. pass yds, rec yds, rush yds, receptions, ATD, pass TDs, points"},
@@ -86,34 +157,35 @@ BET_CONTEXT = ("You help run 'Bozo Bet': a group of friends where each person pi
                "The worst leg's owner (the 'bozo') has to go to the casino and place next week's bet. ")
 
 
-def parse_leg(raw):
+def parse_leg(raw, model=None):
     return structured(
         BET_CONTEXT + "Turn a casually typed bet into a structured leg. Never invent odds that weren't given. Today is " + today_ct(),
-        f"Leg as typed: {raw}", LEG_SCHEMA)
+        f"Leg as typed: {raw}", LEG_SCHEMA, model=model, task="parse")
 
 
-def extract_slack(conversation, roster):
+def extract_slack(conversation, roster, model=None):
     schema = {
         "type": "object",
         "properties": {"legs": {"type": "array", "items": {
             "type": "object",
             "properties": {
-                "person": {"type": "string", "description": "Exactly as written in the conversation (slack name)"},
-                "playerName": {"type": ["string", "null"], "description": "Matching roster name, or null if unsure"},
+                "slackName": {"type": "string", "description": "The group member who SUBMITTED this leg, exactly as their name appears on the message header"},
+                "bettor": {"type": ["string", "null"], "description": "That group member's name from the roster (never an athlete or team), or null if unsure"},
                 **LEG_SCHEMA["properties"],
                 "evidence": {"type": "string", "description": "The message the leg came from"},
             },
-            "required": ["person", "text", "parsed", "confidence", "evidence"],
+            "required": ["slackName", "text", "parsed", "confidence", "evidence"],
         }}},
         "required": ["legs"],
     }
     return structured(
         BET_CONTEXT + "Extract each person's FINAL submitted leg from a pasted Slack conversation. If someone changes their pick, "
-        "keep only the last one. Ignore jokes, trash talk and other people's suggestions. Roster: " + ", ".join(roster),
-        conversation, schema, max_tokens=4000)
+        "keep only the last one. Ignore jokes, trash talk and other people's suggestions. Exactly one leg per group member. "
+        "Keep each leg's wording close to how its owner wrote it. Group members (bettors) on the roster: " + ", ".join(roster),
+        conversation, schema, max_tokens=4000, model=model, task="slack")
 
 
-def extract_slip(image_bytes, fmt, legs):
+def extract_slip(image_bytes, fmt, legs, model=None, fallback=True):
     """Read a casino/sportsbook ticket photo and match each line to a submitted leg."""
     schema = {
         "type": "object",
@@ -135,10 +207,10 @@ def extract_slip(image_bytes, fmt, legs):
         {"text": f"Submitted legs:\n{submitted}\n\nRead the ticket. Match every ticket line to a submitted leg id and give its American odds."},
     ]
     sys = BET_CONTEXT + "You read sportsbook tickets precisely. Never guess numbers you can't read; use null."
-    result = structured(sys, content, schema, model=FAST)
-    if result.get("confidence", 0) < 0.8:
-        log.info("slip extraction low confidence on fast model, retrying with smart model")
-        result = structured(sys, content, schema, model=SMART)
+    result = structured(sys, content, schema, model=model, task="slip")
+    if fallback and result.get("confidence", 0) < 0.8:
+        log.info("slip extraction low confidence, retrying with fallback model")
+        result = structured(sys, content, schema, task="slip_fallback")
     return result
 
 
@@ -146,7 +218,7 @@ ROAST = {"mild": "Keep it light and friendly.", "spicy": "Roast them, but keep i
          "no mercy": "Absolutely no mercy (still nothing hateful, sexual, or about real-life sensitive topics)."}
 
 
-def pseudonyms(players):
+def pseudonyms(players, model=None):
     """players: [{id, recent: [leg text + result], roastLevel}] -> {id: name}"""
     schema = {"type": "object", "properties": {"names": {"type": "array", "items": {
         "type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
@@ -158,5 +230,5 @@ def pseudonyms(players):
         BET_CONTEXT + "Invent a funny 2-4 word pseudonym for each bettor based on their recent picks and results "
         "(teams, players, bad beats, chalk habits). These are shown publicly, so never include real first or last names "
         "of the bettors, and keep them unique. Sports puns welcome. Respect each roast level and banned words.",
-        "Recent legs per bettor:\n" + lines, schema)
+        "Recent legs per bettor:\n" + lines, schema, model=model, task="fun")
     return {n["id"]: n["name"] for n in out["names"]}

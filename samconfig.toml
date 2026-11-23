@@ -9,4 +9,6 @@ capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
 parameter_overrides = [
   "CertificateArn=arn:aws:acm:us-east-1:677132533397:certificate/a583d8a8-a3ba-4e65-9872-d8a21818634f",
   "SiteDomain=bozobet.claytondavis.dev",
+  "AuthCustomDomain=auth.bozobet.claytondavis.dev",
+  "GoogleClientId=109856810481-5ar658jantliknjgqmq92vs83llfhue7.apps.googleusercontent.com",
 ]

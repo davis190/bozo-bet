@@ -278,8 +278,9 @@ def admin_slack_extract(req):
     by_name = {p["name"].lower(): p["id"] for p in players}
     aliases = {a.lower(): p["id"] for p in players for a in p.get("slackNames", [])}
     for leg in out["legs"]:
-        leg["playerId"] = (by_name.get((leg.get("playerName") or "").lower())
-                           or aliases.get((leg.get("person") or "").lower().lstrip("@")))
+        leg["playerId"] = (by_name.get((leg.get("bettor") or "").lower())
+                           or aliases.get((leg.get("slackName") or "").lower().lstrip("@"))
+                           or by_name.get((leg.get("slackName") or "").lower()))
     return out
 
 
