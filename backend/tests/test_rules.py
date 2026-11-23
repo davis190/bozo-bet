@@ -317,3 +317,18 @@ def test_scouting_uses_our_numbers_and_rejects_made_up_picks(monkeypatch):
     assert r["ride"]["label"] == "Overs" and (r["ride"]["recent"]["w"], r["ride"]["recent"]["l"]) == (4, 2)
     assert "fade" not in r
     assert scouting.build({"id": "p1"}, legs[:4]) is None  # not enough history
+
+
+def test_margins_are_whole_units():
+    from bozo.enrich import whole_margin
+    assert whole_margin(-0.5) == -1    # anytime TD, 0 TDs
+    assert whole_margin(-64.5) == -65  # 185 yds vs O 249.5
+    assert whole_margin(0.5) == 1      # cleared a .5 line by the minimum
+    assert whole_margin(-3) == -3 and whole_margin(0) == 0
+
+
+def test_yes_no_props_that_never_happened_are_not_heartbreaks():
+    from bozo.stats import _never_happened
+    assert _never_happened({"track": {"kind": "player_stat", "line": 0.5, "direction": "over"}})
+    assert not _never_happened({"track": {"kind": "player_stat", "line": 1.5, "direction": "over"}})
+    assert not _never_happened({"track": {"kind": "spread", "line": 0.5}})

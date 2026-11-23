@@ -25,6 +25,13 @@ SPLITS = {
 }
 
 
+def _never_happened(leg):
+    """A yes/no prop (anytime TD, over 0.5 sacks…) that just didn't happen: a miss, but never a near-miss."""
+    t = leg.get("track") or {}
+    return (t.get("kind") in ("player_stat", "team_stat", "game_stat") and t.get("direction", "over") == "over"
+            and float(t.get("line") or 0) == 0.5)
+
+
 def odds_bucket(a):
     if a is None:
         return "unknown"
@@ -202,7 +209,7 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
                 s["against"].add(leg)
             if en.get("slot"):
                 group_slots[en["slot"]].add(leg)
-            if leg.get("result") == "L" and isinstance(m, (int, float)):
+            if leg.get("result") == "L" and isinstance(m, (int, float)) and not _never_happened(leg):
                 heartbreaks.append({"betId": b["id"], "date": b["date"], "playerId": pid, "text": leg["text"],
                                     "margin": m, "game": en.get("game")})
 

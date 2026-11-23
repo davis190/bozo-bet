@@ -1,5 +1,6 @@
 """Game context for a resolved leg: the raw material for the 'why do I keep losing' stats.
 Pure functions over a tracker spec + games.summary(); no LLM."""
+import math
 from datetime import date, timedelta
 
 from . import games
@@ -54,6 +55,12 @@ def season_phase(sport, local, week, season_type):
     return local.strftime("%B")
 
 
+def whole_margin(m):
+    """Scores and stats are whole numbers, so a half-point line is really missed by a whole one:
+    an anytime TD with 0 TDs is short 1 TD (not 0.5), -7.5 won by 7 is short 1 point."""
+    return (1 if m > 0 else -1) * math.ceil(abs(m)) if m else 0
+
+
 def derive(spec, s, live):
     """-> enrichment dict for a leg."""
     sport = spec.get("sport") or ""
@@ -88,7 +95,7 @@ def derive(spec, s, live):
     v, line = live.get("value"), float(spec.get("line") or 0)
     if v is not None:
         if spec.get("kind") in ("moneyline", "spread"):
-            e["margin"] = v
+            e["margin"] = whole_margin(v)
         else:
-            e["margin"] = round((v - line) if spec.get("direction", "over") == "over" else (line - v), 2)
+            e["margin"] = whole_margin((v - line) if spec.get("direction", "over") == "over" else (line - v))
     return {k: v for k, v in e.items() if v is not None}
