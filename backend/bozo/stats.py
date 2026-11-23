@@ -108,14 +108,14 @@ def in_range(b, frm, to):
     return (not frm or b["date"] >= frm) and (not to or b["date"] <= to)
 
 
-def compute(bets, players, frm=None, to=None, kind="bozo"):
+def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
     bets = [b for b in bets if b.get("kind") == kind and in_range(b, frm, to)]
     pids = [p["id"] for p in sorted(players, key=lambda p: p["slot"])]
     per = {pid: {
         "rec": Rec(), "splits": defaultdict(lambda: defaultdict(Rec)), "results": [], "odds": [], "winOdds": [],
         "bozo": 0, "voted": 0, "auto": 0, "reload": 0, "spent": 0.0, "won": 0.0,
         "curse": Rec(), "soleKiller": 0, "leftOnTable": 0.0, "lostMargin": [], "teams": Counter(),
-        "homer": Rec(), "against": Rec(),
+        "homer": Rec(), "against": Rec(), "crowd": Counter(),
     } for pid in pids}
     favs = {p["id"]: {t["team"] for t in (p.get("favoriteTeams") or []) if t.get("team")} for p in players}
     heartbreaks, group_slots = [], defaultdict(Rec)
@@ -178,6 +178,8 @@ def compute(bets, players, frm=None, to=None, kind="bozo"):
                     s["splits"][key][v].add(leg)
             if pid == bozo:
                 s["curse"].add(leg)
+            for emoji, users in (leg.get("reactions") or {}).items():  # Slack verdicts on the leg
+                s["crowd"][(emoji_kinds or {}).get(emoji, "unknown")] += len(users)
             if b.get("result") == "W" and b.get("perPerson"):
                 s["won"] += float(b["perPerson"])
             en = leg.get("enrichment") or {}
@@ -230,6 +232,7 @@ def compute(bets, players, frm=None, to=None, kind="bozo"):
             "splits": {k: {v: r.out() for v, r in sorted(d.items(), key=lambda x: -(x[1].w + x[1].l))} for k, d in s["splits"].items()},
             "topTeams": s["teams"].most_common(5),
             "homer": s["homer"].out(), "againstTeam": s["against"].out(),
+            "crowd": {k: s["crowd"][k] for k in ("up", "down", "neutral", "unknown")},
         })
 
     g = group

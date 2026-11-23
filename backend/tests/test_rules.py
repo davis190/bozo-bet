@@ -285,3 +285,21 @@ def test_push_shrinks_slip_payout_but_keeps_boost(fake):
     rules.upsert_leg(bet, "p2", {"result": "P"}, "admin", admin=True)
     rules.settle(bet, 10)
     assert bet["payout"] == 25.0  # push halves it, boost kept
+
+
+def test_reactions_signature_and_summary(monkeypatch):
+    import hashlib, hmac, time
+    from bozo import reactions
+    monkeypatch.setattr(reactions, "_signing_secret", lambda: "shh")
+    raw, ts = '{"type":"event_callback"}', str(int(time.time()))
+    sig = "v0=" + hmac.new(b"shh", f"v0:{ts}:{raw}".encode(), hashlib.sha256).hexdigest()
+    assert reactions.verify({"X-Slack-Request-Timestamp": ts, "X-Slack-Signature": sig}, raw)
+    assert not reactions.verify({"X-Slack-Request-Timestamp": ts, "X-Slack-Signature": sig}, raw + " ")
+    old = str(int(time.time()) - 600)
+    old_sig = "v0=" + hmac.new(b"shh", f"v0:{old}:{raw}".encode(), hashlib.sha256).hexdigest()
+    assert not reactions.verify({"x-slack-request-timestamp": old, "x-slack-signature": old_sig}, raw)  # replay
+
+    assert reactions.base("+1::skin-tone-3") == "+1"
+    s = reactions.summarize({"fire": ["U1", "U2"], "skull": ["U3"], "partyparrot": ["U1"]}, {**reactions.DEFAULT_KINDS, "eyes": "neutral"})
+    assert (s["up"], s["down"], s["neutral"], s["unknown"]) == (2, 1, 0, 1)
+    assert s["emojis"][0] == ["fire", 2, "up"]

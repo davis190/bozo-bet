@@ -79,6 +79,20 @@ def _next_open(bet):
     return f"\n:slot_machine: Next bet is open - get your legs in: <{SITE}|Bozo Bet>" if bet.get("nextBetId") else ""
 
 
+def custom_emoji():
+    """{name: image url} for the workspace's custom emojis (needs emoji:read; empty without it)."""
+    token = _bot_token()
+    if not token:
+        return {}
+    try:
+        req = urllib.request.Request("https://slack.com/api/emoji.list", headers={"authorization": f"Bearer {token}"})
+        out = json.loads(urllib.request.urlopen(req, timeout=5).read())
+        return {k: v for k, v in (out.get("emoji") or {}).items() if v.startswith("http")} if out.get("ok") else {}
+    except Exception:
+        log.exception("emoji.list failed")
+        return {}
+
+
 # ---------------- #main ----------------
 def bet_open(bet, players):
     bozo = _name(players, bet.get("bozoId")) if bet.get("bozoId") else "TBD"
@@ -86,9 +100,11 @@ def bet_open(bet, players):
          f"Get your legs in: <{SITE}|Bozo Bet>")
 
 
-def leg_submitted(bet, leg, players, count=None):
+def leg_submitted(bet, leg, players, count=None, settings=None):
+    """Returns the ts: reactions on this post are the group's verdict on the leg."""
     tail = f" _({count[0]}/{count[1]} in)_" if count else ""
-    main(f":memo: *{_name(players, leg['playerId'])}* is in: {leg['text']} {_odds(leg.get('odds'))}{tail}")
+    return main(f":memo: *{_name(players, leg['playerId'])}* is in: {leg['text']} {_odds(leg.get('odds'))}{tail}\n"
+                "_React to judge it_ :+1: :-1:", settings)
 
 
 def legs_summary(bet, players, changed=False):

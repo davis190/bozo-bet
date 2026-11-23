@@ -393,8 +393,10 @@ const CHECK_INFO: Record<CheckItem["check"]["status"], { label: string; color: s
   review: { label: "Review", color: "var(--serious)", help: "Tracker found the game but couldn't grade it (DNP, odd stat…)" },
 };
 
+interface MysteryEmoji { name: string; count: number; url?: string; examples: { betId: string; playerId: string; text: string; result?: Result }[] }
+
 function DataChecks() {
-  const { data, setData, loading } = useApi<{ items: CheckItem[]; players: Player[] }>("/admin/checks");
+  const { data, setData, loading } = useApi<{ items: CheckItem[]; emojis?: MysteryEmoji[]; players: Player[] }>("/admin/checks");
   const [filter, setFilter] = useState<CheckItem["check"]["status"] | "all">("mismatch");
   const { run, el } = useToast();
   if (loading && !data) return <Spinner label="Auditing the books…" />;
@@ -410,6 +412,31 @@ function DataChecks() {
   return (
     <div>
       {el}
+      {!!data?.emojis?.length && (
+        <Section title="🤷 Mystery emojis" right={<span className="text-xs text-muted">from Slack reactions</span>}>
+          <p className="text-xs text-muted mb-2 px-1">The bot doesn't know what these mean. Your call sticks for every past and future reaction.</p>
+          <div className="grid gap-2">
+            {data.emojis.map((e) => (
+              <div key={e.name} className="card p-3.5">
+                <div className="flex items-center gap-2">
+                  {e.url ? <img src={e.url} alt="" className="w-7 h-7 object-contain" /> : null}
+                  <span className="font-mono font-bold">:{e.name}:</span>
+                  <span className="text-xs text-muted ml-auto">used {e.count}×</span>
+                </div>
+                <div className="text-xs text-ink-2 mt-1.5">on {e.examples.map((x) => `“${x.text}”${x.result ? ` (${x.result})` : ""}`).join(", ")}</div>
+                <div className="grid grid-cols-3 gap-1.5 mt-2.5">
+                  {([["up", "👍 Positive"], ["down", "👎 Negative"], ["neutral", "😐 Neutral"]] as const).map(([kind, label]) => (
+                    <button key={kind} className="btn btn-ghost !min-h-9 text-sm" onClick={() => run(async () => {
+                      await post("/admin/emoji", { name: e.name, kind });
+                      setData((d) => (d ? { ...d, emojis: d.emojis?.filter((x) => x.name !== e.name) } : d));
+                    }, `:${e.name}: is ${kind === "up" ? "positive" : kind === "down" ? "negative" : "neutral"}`)}>{label}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
       <p className="text-sm text-ink-2 mt-4">Legs where ESPN and the records disagree, or the tracker needs a human. Changing an old result updates stats only — who was bozo stays as it happened.</p>
       <div className="flex gap-1.5 mt-3 overflow-x-auto no-scrollbar">
         {(["mismatch", "ambiguous", "review", "unresolved", "all"] as const).map((f) => (

@@ -31,6 +31,13 @@ export interface Leg {
   live?: { status: LiveStatus; detail?: string; progress?: number | null; updatedAt?: string; state?: "pre" | "in" | "post"; needsReview?: boolean };
   resultSource?: string;
   enrichment?: Record<string, unknown>;
+  crowd?: Crowd;
+}
+
+/** The group's emoji verdict on a leg's Slack post. emojis: [name, count, kind] */
+export interface Crowd {
+  up: number; down: number; neutral: number; unknown: number;
+  emojis: [string, number, "up" | "down" | "neutral" | "unknown"][];
 }
 
 export interface Voting {
@@ -133,6 +140,7 @@ export interface PlayerStats extends RecordOut {
   topTeams: [string, number][];
   homer: RecordOut;
   againstTeam: RecordOut;
+  crowd: { up: number; down: number; neutral: number; unknown: number };
 }
 
 export interface Stats {

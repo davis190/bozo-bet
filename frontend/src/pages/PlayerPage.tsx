@@ -67,6 +67,10 @@ export default function PlayerPage() {
             {s.homer.w + s.homer.l > 0 && <Stat label="Homer index" value={record(s.homer)} sub={`${fmtPct(s.homer.pct)} betting on ${p?.favoriteTeams?.map((t) => t.team).join("/") || "your teams"}`} />}
             {s.againstTeam.w + s.againstTeam.l > 0 && <Stat label="Traitor index" value={record(s.againstTeam)} sub="betting against your own team" />}
             {s.badBeatIndex != null && <Stat label="Bad beat index" value={s.badBeatIndex} sub="avg miss on losing legs" />}
+            {s.crowd && s.crowd.up + s.crowd.down > 0 && (
+              <Stat label="Group approval" value={fmtPct(s.crowd.up / (s.crowd.up + s.crowd.down))}
+                sub={`👍 ${s.crowd.up} · 👎 ${s.crowd.down}${s.crowd.unknown ? ` · 🤷 ${s.crowd.unknown}` : ""} in Slack`} />
+            )}
           </div>
 
           {Object.entries(s.splits).map(([key, vals]) => (

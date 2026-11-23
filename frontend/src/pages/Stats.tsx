@@ -177,6 +177,9 @@ function Awards({ rows, players }: { rows: PlayerStats[]; players: Record<string
   const moon = [...decided].filter((r) => r.bestWin != null).sort((a, b) => dec(b.bestWin) - dec(a.bestWin))[0];
   const curse = [...decided].filter((r) => r.bozoCurse.w + r.bozoCurse.l >= 3).sort((a, b) => (a.bozoCurse.pct ?? 1) - (b.bozoCurse.pct ?? 1))[0];
   const cold = [...decided].sort((a, b) => b.streaks.longestL - a.streaks.longestL)[0];
+  const judged = rows.filter((r) => r.crowd && r.crowd.up + r.crowd.down >= 3);
+  const loved = [...judged].sort((a, b) => b.crowd.up - b.crowd.down - (a.crowd.up - a.crowd.down))[0];
+  const hated = [...judged].sort((a, b) => b.crowd.down - b.crowd.up - (a.crowd.down - a.crowd.up))[0];
   const awards = [
     by("soleKiller") && { emoji: "🔪", title: "Sole Assassin", r: by("soleKiller"), v: `${by("soleKiller").soleKiller} parlays killed alone` },
     by("luck", -1) && { emoji: "🪦", title: "Born Unlucky", r: by("luck", -1), v: `${fmtSigned(by("luck", -1).luck)} wins vs the odds` },
@@ -186,6 +189,8 @@ function Awards({ rows, players }: { rows: PlayerStats[]; players: Record<string
     by("bozoCount") && { emoji: "🎰", title: "Casino Regular", r: by("bozoCount"), v: `bozo ${by("bozoCount").bozoCount} times` },
     curse && { emoji: "🧿", title: "Bozo Curse", r: curse, v: `${record(curse.bozoCurse)} while bozo` },
     cold && { emoji: "🥶", title: "Ice Cold", r: cold, v: `${cold.streaks.longestL} straight Ls` },
+    loved && loved.crowd.up > loved.crowd.down && { emoji: "🥰", title: "Crowd Favorite", r: loved, v: `👍 ${loved.crowd.up} · 👎 ${loved.crowd.down} in Slack` },
+    hated && hated.crowd.down > hated.crowd.up && hated !== loved && { emoji: "🍅", title: "Group Chat Pariah", r: hated, v: `👎 ${hated.crowd.down} · 👍 ${hated.crowd.up} in Slack` },
   ].filter(Boolean) as { emoji: string; title: string; r: PlayerStats; v: string }[];
   return (
     <Section title="Awards">

@@ -7,7 +7,7 @@ import re
 
 import boto3
 
-from . import auth, commentary, db, llm, slack, stats, views
+from . import auth, commentary, db, llm, reactions, slack, stats, views
 from . import bets as rules
 from .util import ApiError, new_id, now_iso, response, today_ct
 
@@ -33,8 +33,17 @@ class Req:
         body = event.get("body") or ""
         if event.get("isBase64Encoded"):
             body = base64.b64decode(body).decode()
+        self.raw, self.headers = body, event.get("headers") or {}
         self.body = json.loads(body) if body else {}
         self.names = auth.can_see_names(user)
+        self._kinds = None
+
+    @property
+    def kinds(self):
+        """Emoji -> up/down/neutral, loaded once per request."""
+        if self._kinds is None:
+            self._kinds = reactions.kinds()
+        return self._kinds
 
 
 def _players():
@@ -49,7 +58,7 @@ def _bundle(bet_id):
 
 
 def _present(req, b):
-    return views.bet(b, req.names, req.user.get("playerId"))
+    return views.bet(b, req.names, req.user.get("playerId"), req.kinds)
 
 
 # ---------------- shared read endpoints (public + authed variants) ----------------
@@ -114,7 +123,7 @@ def get_bet(req):
 @route("GET", "/api/stats", "viewer")
 def get_stats(req):
     q = req.query
-    return stats.compute(db.all_data(), db.list_players(), q.get("from"), q.get("to"), q.get("kind", "bozo"))
+    return stats.compute(db.all_data(), db.list_players(), q.get("from"), q.get("to"), q.get("kind", "bozo"), req.kinds)
 
 
 # ---------------- player actions ----------------
@@ -123,8 +132,11 @@ def _notify_leg(bet, leg, was_complete):
     try:
         active = [p for p in players.values() if p.get("active")]
         complete = len(rules.counted_legs(bet)) >= len(active)
-        if leg.get("source") == "app" and not complete:
-            slack.leg_submitted(bet, leg, players, count=(len(rules.counted_legs(bet)), len(active)))
+        settings = db.get_settings()
+        # Every leg gets its own post so the group can react to it; reactions map back via the ts
+        ts = slack.leg_submitted(bet, leg, players, count=(len(rules.counted_legs(bet)), len(active)), settings=settings)
+        if ts:
+            db.put_slack_msg(settings["slackChannelMain"], ts, bet, leg["playerId"])
         if complete:
             slack.legs_summary(bet, players, changed=was_complete)
     except Exception:
@@ -287,6 +299,26 @@ def admin_reload(req):
     return _present(req, new)
 
 
+@route("POST", "/public/slack/events")
+def slack_events(req):
+    """Slack Events API (reactions on leg posts). Signed by Slack, so no login."""
+    if not reactions.verify(req.headers, req.raw):
+        raise ApiError(401, "bad signature")
+    return reactions.handle(req.body)
+
+
+@route("POST", "/api/admin/emoji", "admin")
+def admin_emoji(req):
+    """Admin's call on an emoji the bot didn't know: up / down / neutral."""
+    name, kind = req.body.get("name"), req.body.get("kind")
+    if not name or kind not in (reactions.UP, reactions.DOWN, reactions.NEUTRAL):
+        raise ApiError(400, "Need an emoji name and up, down or neutral")
+    s = db.get_settings()
+    s["emojiKinds"] = {**(s.get("emojiKinds") or {}), name: kind}
+    db.put_settings(s)
+    return {"ok": True}
+
+
 @route("POST", "/api/admin/slack-test", "admin")
 def admin_slack_test(req):
     s = db.get_settings()
@@ -326,7 +358,24 @@ def admin_checks(req):
                               "check": c, "game": (l.get("enrichment") or {}).get("game")})
     order = {s: i for i, s in enumerate(OPEN_CHECKS)}
     items.sort(key=lambda x: (order[x["check"]["status"]], x["date"]), reverse=False)
-    return {"items": items, "players": views.players(db.list_players(), True)}
+    return {"items": items, "emojis": _unknown_emojis(req.kinds), "players": views.players(db.list_players(), True)}
+
+
+def _unknown_emojis(kinds):
+    """Emojis people reacted with that nobody has classified yet, with where they were used."""
+    out = {}
+    for b in db.all_data():
+        for l in b["legs"]:
+            for name, users in (l.get("reactions") or {}).items():
+                if name not in kinds:
+                    e = out.setdefault(name, {"name": name, "count": 0, "examples": []})
+                    e["count"] += len(users)
+                    if len(e["examples"]) < 3:
+                        e["examples"].append({"betId": b["id"], "playerId": l["playerId"], "text": l["text"], "result": l.get("result")})
+    urls = slack.custom_emoji() if out else {}
+    for e in out.values():
+        e["url"] = urls.get(e["name"])
+    return sorted(out.values(), key=lambda e: -e["count"])
 
 
 @route("POST", "/api/admin/checks/{betId}/{playerId}", "admin")

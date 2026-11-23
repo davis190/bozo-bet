@@ -4,6 +4,7 @@ import os
 import boto3
 
 from . import bets as rules
+from . import reactions
 
 PUBLIC_PLAYER_FIELDS = ("id", "slot", "color", "avatar", "pseudonym", "active")
 PRIVATE_PLAYER_FIELDS = ("name", "favoriteTeams", "roastLevel", "taunt")
@@ -36,9 +37,12 @@ def players(ps, names):
 LEG_FIELDS = ("playerId", "text", "odds", "sgp", "parsed", "result", "resultSource", "live", "source", "submittedAt", "carriedOver", "enrichment")
 
 
-def bet(b, names, viewer_pid=None):
+def bet(b, names, viewer_pid=None, emoji_kinds=None):
     out = {k: v for k, v in b.items() if k not in ("legs", "votes", "slipKey")}
     out["legs"] = [{k: l.get(k) for k in LEG_FIELDS if l.get(k) is not None} for l in b.get("legs", [])]
+    for src, l in zip(b.get("legs", []), out["legs"]):
+        if src.get("reactions"):
+            l["crowd"] = reactions.summarize(src["reactions"], emoji_kinds or reactions.DEFAULT_KINDS)
     for g in b.get("sgpGroups") or []:  # same-game parlay: show the combined price on each of its legs
         for l in out["legs"]:
             if l["playerId"] in (g.get("playerIds") or []):

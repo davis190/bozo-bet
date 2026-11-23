@@ -6,6 +6,8 @@ USER#<sub>  / META           USER / <email>            login account -> role + p
 BET#<id>    / META           BET / <date>#<seq>        bet (bozo or side)
 BET#<id>    / LEG#<playerId> LEG / <date>#<id>#<pid>   one player's leg
 BET#<id>    / VOTE#<voter>   VOTE / <date>#<id>        bozo vote
+BET#<id>    / RX#<pid>#<emoji>#<slackUser>  RX / ...     one emoji reaction on a leg's Slack post
+SLACKMSG#<channel>#<ts> / META                          which leg a Slack post is about
 SETTINGS    / GLOBAL                                   app settings
 """
 import os
@@ -89,7 +91,7 @@ def leg_item(bet, leg):
     return {
         "pk": f"BET#{bet['id']}", "sk": f"LEG#{leg['playerId']}",
         "gsi1pk": "LEG", "gsi1sk": f"{bet['date']}#{bet['id']}#{leg['playerId']}",
-        "betId": bet["id"], **leg,
+        "betId": bet["id"], **{k: v for k, v in leg.items() if k != "reactions"},  # reactions are their own items
     }
 
 
@@ -125,7 +127,36 @@ def get_bet_bundle(bet_id):
         return None
     meta["legs"] = [_strip(dict(i)) for i in items if i["sk"].startswith("LEG#")]
     meta["votes"] = [_strip(dict(i)) for i in items if i["sk"].startswith("VOTE#")]
+    _attach_reactions(meta["legs"], [i for i in items if i["sk"].startswith("RX#")])
     return meta
+
+
+def _attach_reactions(legs, rx):
+    by = {l["playerId"]: l for l in legs}
+    for r in rx:
+        if r["playerId"] in by:
+            by[r["playerId"]].setdefault("reactions", {}).setdefault(r["emoji"], []).append(r["user"])
+
+
+def put_slack_msg(channel, ts, bet, player_id):
+    table().put_item(Item={"pk": f"SLACKMSG#{channel}#{ts}", "sk": "META", "betId": bet["id"], "date": bet["date"], "playerId": player_id})
+
+
+def get_slack_msg(channel, ts):
+    return _strip(table().get_item(Key={"pk": f"SLACKMSG#{channel}#{ts}", "sk": "META"}).get("Item"))
+
+
+def _rx_key(msg, emoji, user):
+    return {"pk": f"BET#{msg['betId']}", "sk": f"RX#{msg['playerId']}#{emoji}#{user}"}
+
+
+def put_reaction(msg, emoji, user):
+    table().put_item(Item={**_rx_key(msg, emoji, user), "gsi1pk": "RX", "gsi1sk": f"{msg['date']}#{msg['betId']}#{msg['playerId']}",
+                           "betId": msg["betId"], "playerId": msg["playerId"], "emoji": emoji, "user": user})
+
+
+def delete_reaction(msg, emoji, user):
+    table().delete_item(Key=_rx_key(msg, emoji, user))
 
 
 def list_bets():
@@ -141,6 +172,12 @@ def all_data():
     for v in _by_type("VOTE"):
         if v["betId"] in bets:
             bets[v["betId"]]["votes"].append(v)
+    rx = {}
+    for r in _by_type("RX"):
+        rx.setdefault(r["betId"], []).append(r)
+    for bid, items in rx.items():
+        if bid in bets:
+            _attach_reactions(bets[bid]["legs"], items)
     return sorted(bets.values(), key=lambda b: (b["date"], b.get("seq", 0)))
 
 
@@ -149,6 +186,7 @@ DEFAULT_SETTINGS = {
     "defaultWager": 10,
     "slackChannelMain": "",  # channel IDs (C…), bot token lives in Secrets Manager
     "slackChannelOps": "",
+    "emojiKinds": {},  # admin's calls on emojis: {name: up|down|neutral}
     "oracleDailyLimit": 10,
     "trackerDefaultMinutes": 30,
     "trackerMaxRunsPerDay": 40,
