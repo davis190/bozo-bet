@@ -55,20 +55,20 @@ export default function PlayerPage() {
           <div className="text-[11px] text-muted mt-1">last {s.recent.length} legs, oldest → newest</div>
 
           <div className="grid grid-cols-2 gap-2 mt-4">
-            <Stat label="Record" value={record(s)} sub={`${fmtPct(s.pct)} · odds said ${fmtPct(s.xPct)}`} />
-            <Stat label="Luck" value={fmtSigned(s.luck)} sub="wins vs. what the odds predicted" />
-            <Stat label="Flat-bet units" value={fmtSigned(s.units)} sub="$1 on every leg, straight up" />
-            <Stat label="Avg odds" value={fmtOdds(s.avgOdds)} sub={`avg winner ${fmtOdds(s.avgWinOdds)} · best ${fmtOdds(s.bestWin)}`} />
+            <Stat info="record" label="Record" value={record(s)} sub={`${fmtPct(s.pct)} · odds said ${fmtPct(s.xPct)}`} />
+            <Stat info="luck" label="Luck" value={fmtSigned(s.luck)} sub="wins vs. what the odds predicted" />
+            <Stat info="units" label="Flat-bet units" value={fmtSigned(s.units)} sub="$1 on every leg, straight up" />
+            <Stat info="avgOdds" label="Avg odds" value={fmtOdds(s.avgOdds)} sub={`avg winner ${fmtOdds(s.avgWinOdds)} · best ${fmtOdds(s.bestWin)}`} />
             <LastBozo d={cur.data?.droughts?.[id]} now={cur.data?.currentBozoId === id} />
-            <Stat label="Times bozo" value={s.bozoCount} sub={`${s.votedBozo} voted · ${s.autoBozo} solo · ${s.reloadBozo} reload`} />
-            <Stat label="Bozo curse" value={record(s.bozoCurse)} sub="own leg while being the bozo" />
-            <Stat label="Sole assassin" value={s.soleKiller} sub={`${fmtMoney(s.leftOnTable)} left on the table`} />
-            <Stat label="Net $" value={fmtMoney(s.net)} sub={`${fmtMoney(s.spent)} spent · ${fmtMoney(s.won)} won`} />
-            {s.homer.w + s.homer.l > 0 && <Stat label="Homer index" value={record(s.homer)} sub={`${fmtPct(s.homer.pct)} betting on ${p?.favoriteTeams?.map((t) => t.team).join("/") || "your teams"}`} />}
-            {s.againstTeam.w + s.againstTeam.l > 0 && <Stat label="Traitor index" value={record(s.againstTeam)} sub="betting against your own team" />}
-            {s.badBeatIndex != null && <Stat label="Bad beat index" value={s.badBeatIndex} sub="avg miss on losing legs" />}
+            <Stat info="timesBozo" label="Times bozo" value={s.bozoCount} sub={`${s.votedBozo} voted · ${s.autoBozo} solo · ${s.reloadBozo} reload`} />
+            <Stat info="bozoCurse" label="Bozo curse" value={record(s.bozoCurse)} sub="own leg while being the bozo" />
+            <Stat info="soleAssassin" label="Sole assassin" value={s.soleKiller} sub={`${fmtMoney(s.leftOnTable)} left on the table`} />
+            <Stat info="net" label="Net $" value={fmtMoney(s.net)} sub={`${fmtMoney(s.spent)} spent · ${fmtMoney(s.won)} won`} />
+            {s.homer.w + s.homer.l > 0 && <Stat info="homer" label="Homer index" value={record(s.homer)} sub={`${fmtPct(s.homer.pct)} betting on ${p?.favoriteTeams?.map((t) => t.team).join("/") || "your teams"}`} />}
+            {s.againstTeam.w + s.againstTeam.l > 0 && <Stat info="traitor" label="Traitor index" value={record(s.againstTeam)} sub="betting against your own team" />}
+            {s.badBeatIndex != null && <Stat info="badBeat" label="Bad beat index" value={s.badBeatIndex} sub="avg miss on losing legs" />}
             {s.crowd && s.crowd.up + s.crowd.down > 0 && (
-              <Stat label="Group approval" value={fmtPct(s.crowd.up / (s.crowd.up + s.crowd.down))}
+              <Stat info="approval" label="Group approval" value={fmtPct(s.crowd.up / (s.crowd.up + s.crowd.down))}
                 sub={`👍 ${s.crowd.up} · 👎 ${s.crowd.down}${s.crowd.unknown ? ` · 🤷 ${s.crowd.unknown}` : ""} in Slack`} />
             )}
           </div>
@@ -107,8 +107,8 @@ function Splits({ title, vals }: { title: string; vals: Record<string, RecordOut
 }
 
 function LastBozo({ d, now }: { d?: Drought; now: boolean }) {
-  if (now) return <Stat label="Last bozo" value="Right now 👑" sub="enjoy the casino" />;
-  if (!d) return <Stat label="Last bozo" value="Never 😇" sub="suspiciously clean" />;
+  if (now) return <Stat info="lastBozo" label="Last bozo" value="Right now 👑" sub="enjoy the casino" />;
+  if (!d) return <Stat info="lastBozo" label="Last bozo" value="Never 😇" sub="suspiciously clean" />;
   const how = { voted: "voted in", auto: "only loser", reload: "reload", stays: "hit, went again" }[d.how ?? "voted"];
-  return <Stat label="Last bozo" value={`${d.betsSince} bet${d.betsSince === 1 ? "" : "s"} ago`} sub={`${fmtDate(d.lastDate, { month: "short", day: "numeric", year: "numeric" })} · ${how}`} />;
+  return <Stat info="lastBozo" label="Last bozo" value={`${d.betsSince} bet${d.betsSince === 1 ? "" : "s"} ago`} sub={`${fmtDate(d.lastDate, { month: "short", day: "numeric", year: "numeric" })} · ${how}`} />;
 }

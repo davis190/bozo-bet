@@ -5,7 +5,8 @@ import { useApi } from "../lib/api";
 import { fmtDate, fmtMoney, fmtOdds, fmtPct, fmtSigned, record } from "../lib/format";
 import { useSession } from "../lib/session";
 import type { Drought, Player, PlayerStats, Stats as StatsT } from "../lib/types";
-import { Avatar, ErrorBox, Section, Spinner, Stat, slotColor } from "../components/ui";
+import { Avatar, ErrorBox, Glossary, Section, Spinner, Stat, slotColor } from "../components/ui";
+import { GLOSSARY, type TermKey } from "../lib/glossary";
 
 export const RANGES = [
   { id: "all", label: "All time" },
@@ -93,10 +94,10 @@ export default function Stats() {
       <RangePicker range={range} setRange={setRange} />
 
       <div className="grid grid-cols-2 gap-2 mt-3">
-        <Stat label="Parlays hit" value={`${g.hits}/${g.parlays}`} sub={`${fmtPct(g.hitRate, 1)} · odds said ${fmtPct(g.expectedHitRate, 1)}`} />
-        <Stat label="Curse meter" value={cursed == null ? "—" : cursed < 0 ? "CURSED" : "Blessed"} sub={cursed == null ? "" : `${fmtSigned(cursed * 100)} pts vs expected`} />
-        <Stat label="One leg away" value={g.nearMisses} sub="parlays killed by a single leg" />
-        <Stat label="Group P&L" value={fmtMoney(g.paidOut - g.spent)} sub={`${fmtMoney(g.spent)} in · ${fmtMoney(g.paidOut)} out`} />
+        <Stat info="parlaysHit" label="Parlays hit" value={`${g.hits}/${g.parlays}`} sub={`${fmtPct(g.hitRate, 1)} · odds said ${fmtPct(g.expectedHitRate, 1)}`} />
+        <Stat info="curseMeter" label="Curse meter" value={cursed == null ? "—" : cursed < 0 ? "CURSED" : "Blessed"} sub={cursed == null ? "" : `${fmtSigned(cursed * 100)} pts vs expected`} />
+        <Stat info="oneLegAway" label="One leg away" value={g.nearMisses} sub="parlays killed by a single leg" />
+        <Stat info="groupPnl" label="Group P&L" value={fmtMoney(g.paidOut - g.spent)} sub={`${fmtMoney(g.spent)} in · ${fmtMoney(g.paidOut)} out`} />
       </div>
 
       {cur.data && <DroughtStrip droughts={cur.data.droughts ?? {}} currentBozoId={cur.data.currentBozoId} />}
@@ -148,7 +149,7 @@ export default function Stats() {
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-muted mt-2 px-1"><b>Luck</b> = actual wins minus wins the odds predicted. <b>Units</b> = profit if each leg were a $1 straight bet — the real skill test.</p>
+        <Glossary keys={["record", "winPct", "streak", "luck", "units", "bozos", "net"]} />
       </Section>
 
       <Heartbreak data={data} players={players} />
@@ -156,6 +157,10 @@ export default function Stats() {
       <AboveFiveHundred data={data} players={players} />
       <WallOfShame data={data} players={players} />
       <VoteMatrix data={data} players={players} />
+
+      <Section title="Glossary">
+        <Glossary title="Every stat, explained" keys={Object.keys(GLOSSARY) as TermKey[]} />
+      </Section>
 
       {retiredCount > 0 && (
         <label className="flex items-center justify-center gap-2 text-xs text-muted mt-10 mb-2">

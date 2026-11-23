@@ -1,5 +1,6 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { fmtOdds } from "../lib/format";
+import { GLOSSARY, type TermKey } from "../lib/glossary";
 import type { Leg, LiveStatus, Player, Result } from "../lib/types";
 
 export const slotColor = (p?: Player | null) => (p ? `var(--p${((p.slot - 1) % 7) + 1})` : "var(--muted)");
@@ -131,12 +132,46 @@ export function Section({ title, right, children }: { title: string; right?: Rea
   );
 }
 
-export function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
+export function Stat({ label, value, sub, info }: { label: string; value: ReactNode; sub?: ReactNode; info?: TermKey }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="card p-3.5">
-      <div className="text-[11px] uppercase tracking-wider text-muted font-semibold">{label}</div>
-      <div className="font-display text-2xl tabular mt-0.5">{value}</div>
-      {sub && <div className="text-xs text-ink-2 mt-0.5">{sub}</div>}
+    <div className="card p-3.5 relative">
+      <div className="text-[11px] uppercase tracking-wider text-muted font-semibold pr-6">{label}</div>
+      {info && <InfoButton open={open} onClick={() => setOpen(!open)} label={label} />}
+      {open && info ? (
+        <div className="text-xs text-ink-2 mt-1 leading-snug">{GLOSSARY[info].def}</div>
+      ) : (
+        <>
+          <div className="font-display text-2xl tabular mt-0.5">{value}</div>
+          {sub && <div className="text-xs text-ink-2 mt-0.5">{sub}</div>}
+        </>
+      )}
     </div>
+  );
+}
+
+/** Tap target for "what does this mean?" — tooltips don't exist on phones. */
+export function InfoButton({ open, onClick, label }: { open: boolean; onClick: () => void; label: string }) {
+  return (
+    <button onClick={onClick} aria-expanded={open} aria-label={open ? `Hide what ${label} means` : `What does ${label} mean?`}
+      className="absolute top-1.5 right-1.5 w-8 h-8 grid place-items-center rounded-full text-muted hover:text-ink text-sm">
+      {open ? "✕" : "ⓘ"}
+    </button>
+  );
+}
+
+/** Collapsible list of definitions. */
+export function Glossary({ keys, title = "What do these mean?" }: { keys: TermKey[]; title?: string }) {
+  return (
+    <details className="card mt-2 group">
+      <summary className="p-3 text-sm font-semibold cursor-pointer list-none flex justify-between items-center">
+        {title}<span className="text-muted group-open:rotate-180 transition">▾</span>
+      </summary>
+      <dl className="px-3 pb-3 grid gap-2.5 text-sm">
+        {keys.map((k) => (
+          <div key={k}><dt className="font-bold">{GLOSSARY[k].term}</dt><dd className="text-ink-2 text-xs leading-snug">{GLOSSARY[k].def}</dd></div>
+        ))}
+      </dl>
+    </details>
   );
 }
