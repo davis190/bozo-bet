@@ -160,7 +160,7 @@ def test_tracker_player_name_matching():
 
 def test_tracker_normalize_fixes_known_mismatches():
     from bozo.tracker import normalize
-    f = {"found": True}
+    f = {"found": True, "eventId": "1"}
     assert normalize({**f, "kind": "game_total", "direction": "under", "line": 40.5}, "O40.5 Texans Rams (alt)")["direction"] == "over"
     assert normalize({**f, "kind": "player_stat", "direction": "under", "line": 225}, "Lamar O 225 passing")["direction"] == "over"
     assert normalize({**f, "kind": "player_stat", "direction": "over", "line": 207.5}, "Kyler Murray Under 207.5 Yards")["direction"] == "under"
@@ -191,3 +191,10 @@ def test_bozo_droughts():
     d = rules.bozo_droughts(bets, "2026-10-22")
     assert d["p1"] == {"lastDate": "2026-10-01", "betsSince": 2, "daysSince": 21, "how": "voted"}
     assert d["p2"]["betsSince"] == 0 and "p3" not in d
+
+
+def test_tracker_normalize_ou_on_moneyline_becomes_total():
+    from bozo.tracker import normalize
+    out = normalize({"found": True, "eventId": "1", "kind": "spread", "team": "LAR", "line": 40.5}, "O40.5 Texans Rams (alt)")
+    assert out["kind"] == "game_total" and out["direction"] == "over"
+    assert normalize({"found": True, "kind": "moneyline"}, "Packers ML")["found"] is False  # no game chosen

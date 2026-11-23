@@ -71,8 +71,9 @@ TOOLS = [
 
 RESOLVER_PROMPT = """You map a casually written sports bet to the exact game and stat to track, using the tools.
 The parlay is dated {date}. That's roughly when the bet was placed, not necessarily game day: the game is usually
-on that date or up to 7 days after it (odds are posted about a week out), occasionally the day before.
-Search from {lo} to {hi}.
+within a few days either side: the date is often the end of the betting week (games Thursday-Saturday come before it)
+and odds are posted up to a week ahead. Search from {lo} to {hi}.
+If a player isn't found, try the other plausible sport (NFL vs NCAAF, NBA vs NCAAB/WNBA) before giving up.
 Group conventions: 'O'/'U' = over/under, 'ML' = moneyline, 'ATD' = anytime touchdown (rushing+receiving TDs over 0.5),
 'tuddies' = touchdowns, 'X+' = over X-0.5, 'TT' = team total, 'alt' lines are just spreads.
 For a quarterback, 'TD'/'TDs' means passing TDs unless it says rush/rushing or ATD.
@@ -91,15 +92,15 @@ If you truly can't find the game, respond with found=false and say why."""
 def _tool(name, args, cache):
     if name == "find_games":
         lo, hi = games.as_date(args["date_from"]), games.as_date(args["date_to"])
-        if (hi - lo).days > 10:
-            return {"error": "date range too wide (max 10 days)"}
+        if (hi - lo).days > 11:
+            return {"error": "date range too wide (max 11 days)"}
         gs = games.find_games(args["sport"], lo, hi, args.get("team"))
         return [{"league": g["league"], "eventId": g["id"], "name": g["name"], "start": g["start"], "state": g["state"],
                  "teams": [f"{t['abbr']} ({t['name']}){' home' if t['home'] else ''}" for t in g["teams"]]} for g in gs[:40]]
     if name == "find_player":
         lo, hi = games.as_date(args["date_from"]), games.as_date(args["date_to"])
-        if (hi - lo).days > 9:
-            return {"error": "date range too wide for a player search (max 9 days)"}
+        if (hi - lo).days > 11:
+            return {"error": "date range too wide for a player search (max 11 days)"}
         hits = []
         for g in games.find_games(args["sport"], lo, hi):
             if g["state"] == "pre":
@@ -134,6 +135,10 @@ def normalize(spec, text):
     if UNSUPPORTED.search(text):
         return {**spec, "found": False, "reason": f"unsupported market for auto-grading: '{UNSUPPORTED.search(text).group(0)}'"}
     kind = spec.get("kind")
+    if not spec.get("eventId"):
+        return {**spec, "found": False, "reason": spec.get("reason") or "no game chosen"}
+    if kind in ("moneyline", "spread") and re.search(r"(^|[\s/(])(o|u|over|under)\s*\.?\d", text, re.I) and not spec.get("player"):
+        spec["kind"] = kind = "game_total"
     if kind in ("game_total", "team_total", "player_stat", "team_stat", "game_stat"):
         if UNDER.search(text) and not OVER.search(text):
             spec["direction"] = "under"
@@ -171,9 +176,28 @@ def _market_distance(spec, leg, s):
     return None
 
 
+SPORT_OF = {lg: sport for sport, lgs in games.LEAGUES.items() for lg in lgs}
+
+
 def choose_event(spec, leg, bet_date, cache, after=None):
-    """Pick among back-to-back candidate games: closest market odds, else the first game on/after the bet."""
-    ids = list(dict.fromkeys([spec["eventId"]] + [i for i in spec.get("candidateEventIds") or [] if i]))
+    """The agent finds *a* matching game; code decides *which* one when the teams play more than once in the window:
+    closest closing market to what was bet, else (live) the next game after the slip locked, else the game nearest
+    the parlay date."""
+    first = games.summary(spec["league"], spec["eventId"], cache)
+    abbrs = [t["abbr"] for t in first["teams"]]
+    side = spec.get("team")
+    if spec.get("kind") == "player_stat":
+        side = (_find_player(first["players"], spec.get("player", "")) or {}).get("_team") or side
+    ids = [spec["eventId"]] + [i for i in spec.get("candidateEventIds") or [] if i]
+    sport = SPORT_OF.get(spec["league"])
+    d = games.as_date(bet_date)
+    if sport:
+        for g in games.find_games(sport, d - timedelta(days=3), d + timedelta(days=7), side or abbrs[0]):
+            gt = {t["abbr"] for t in g["teams"]}
+            same = (side in gt) if side and spec.get("kind") in ("player_stat", "team_total", "team_stat", "moneyline", "spread") else set(abbrs) <= gt
+            if same and g["league"] == spec["league"]:
+                ids.append(g["id"])
+    ids = list(dict.fromkeys(ids))
     if len(ids) < 2:
         return spec
     cands = []
@@ -182,21 +206,22 @@ def choose_event(spec, leg, bet_date, cache, after=None):
             s = games.summary(spec["league"], i, cache)
         except Exception:
             continue
-        start = games.parse_iso(s.get("start"))
-        cands.append((i, start, _market_distance(spec, leg, s)))
-    if not cands:
+        cands.append((i, games.parse_iso(s.get("start")), _market_distance(spec, leg, s)))
+    cands = [c for c in cands if c[1]]
+    if len(cands) < 2:
         return spec
-    floor = after or games.parse_iso(f"{bet_date}T00:00:00-06:00")
-    on_after = [c for c in cands if c[1] and c[1] >= floor - timedelta(hours=6)] or cands
-    scored = [c for c in on_after if c[2] is not None]
-    if scored and len(scored) == len(on_after):
-        best = min(scored, key=lambda c: (c[2], c[1]))
-        how = "closest market odds"
+    scored = [c for c in cands if c[2] is not None]
+    ref = games.parse_iso(f"{bet_date}T12:00:00-06:00")
+    close = [c for c in scored if c[2] <= 12]  # within ~10 cents of what was bet (older games often lack market data)
+    if close and (len(close) == 1 or len({round(c[2]) for c in close}) > 1):
+        best, how = min(close, key=lambda c: (c[2], abs(c[1] - ref))), "closest market odds"
+    elif after:
+        later = [c for c in cands if c[1] >= after - timedelta(hours=4)] or cands
+        best, how = min(later, key=lambda c: c[1]), "next game after the slip locked"
     else:
-        best = min(on_after, key=lambda c: c[1] or floor)
-        how = "first game on/after the bet"
+        best, how = min(cands, key=lambda c: (abs(c[1] - ref), c[1])), "game nearest the parlay date"
     return {**spec, "eventId": best[0], "candidateEventIds": [c[0] for c in cands], "chosenBy": how,
-            "ambiguous": len(on_after) > 1 and how != "closest market odds"}
+            "ambiguous": how == "game nearest the parlay date"}
 
 
 def _resolve(leg, bet_date, cache=None, model=None):
@@ -205,7 +230,7 @@ def _resolve(leg, bet_date, cache=None, model=None):
     sport = (leg.get("parsed") or {}).get("sport")
     msg = f"Bet: {leg['text']}" + (f"\nLikely sport: {sport}" if sport else "")
     d = games.as_date(bet_date)
-    system = RESOLVER_PROMPT.format(date=bet_date, lo=d - timedelta(days=1), hi=d + timedelta(days=7),
+    system = RESOLVER_PROMPT.format(date=bet_date, lo=d - timedelta(days=3), hi=d + timedelta(days=7),
                                     keys=json.dumps(games.STAT_KEYS))
     messages = [{"role": "user", "content": [{"text": msg}]}]
     for _ in range(10):
