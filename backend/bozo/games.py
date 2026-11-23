@@ -117,7 +117,10 @@ def summary(league, event_id, cache=None):
     out = {"league": league, "id": event_id, "teams": teams, "players": players, "start": comp.get("date"),
            "week": data["header"].get("week"), "seasonType": (data["header"].get("season") or {}).get("type"),
            "neutral": comp.get("neutralSite"), "indoor": venue.get("indoor"), "venue": venue.get("fullName"),
-           "favorite": favorite, "scoring": scoring, "marketSpread": pick.get("spread"), "marketTotal": pick.get("overUnder"),
+           "favorite": favorite, "scoring": scoring,
+           # closing moneyline per team, used to tell apart back-to-back games in a series
+           "marketML": {k: v for k, v in ((home, (pick.get("homeTeamOdds") or {}).get("moneyLine")),
+                                          (away, (pick.get("awayTeamOdds") or {}).get("moneyLine"))) if k and v is not None}, "marketSpread": pick.get("spread"), "marketTotal": pick.get("overUnder"),
            **_status(comp.get("status") or {})}
     if cache is not None:
         cache[key] = out

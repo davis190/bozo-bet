@@ -6,7 +6,7 @@ import { useSession } from "../lib/session";
 import type { Bet, Current, Leg, ParsedLeg, Player, Result, User } from "../lib/types";
 import { Avatar, ErrorBox, Section, Spinner } from "../components/ui";
 
-const TABS = ["Bet", "Slack", "People", "Settings"] as const;
+const TABS = ["Bet", "Slack", "Checks", "People", "Settings"] as const;
 
 export default function Admin() {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Bet");
@@ -15,13 +15,14 @@ export default function Admin() {
   return (
     <div>
       <h1 className="font-display text-3xl">Admin</h1>
-      <div className="grid grid-cols-4 gap-1 mt-3 card p-1">
+      <div className="grid grid-cols-5 gap-1 mt-3 card p-1">
         {TABS.map((t) => (
-          <button key={t} className={`btn !min-h-9 !px-2 text-sm ${tab === t ? "btn-primary" : ""}`} onClick={() => setTab(t)}>{t}</button>
+          <button key={t} className={`btn !min-h-9 !px-1 text-[13px] ${tab === t ? "btn-primary" : ""}`} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
       {tab === "Bet" && <BetControl />}
       {tab === "Slack" && <SlackImport />}
+      {tab === "Checks" && <DataChecks />}
       {tab === "People" && <People />}
       {tab === "Settings" && <Settings />}
     </div>
@@ -372,6 +373,80 @@ function SlackImport() {
           </div>
         </Section>
       )}
+    </div>
+  );
+}
+
+// ---------------- Data checks ----------------
+interface CheckItem {
+  betId: string; date: string; kind: string; title?: string; playerId: string; text: string; odds?: number; result?: Result; game?: string;
+  check: { status: "mismatch" | "ambiguous" | "unresolved" | "review"; note?: string; espnResult?: Result | null };
+}
+
+const CHECK_INFO: Record<CheckItem["check"]["status"], { label: string; color: string; help: string }> = {
+  mismatch: { label: "Mismatch", color: "var(--critical)", help: "ESPN disagrees with what was recorded" },
+  ambiguous: { label: "Which game?", color: "var(--warn)", help: "ESPN disagrees, but another game in the series would agree. Probably the wrong game, not a wrong result" },
+  unresolved: { label: "Can't track", color: "var(--muted)", help: "Couldn't find the game, or the market can't be auto-graded" },
+  review: { label: "Review", color: "var(--serious)", help: "Tracker found the game but couldn't grade it (DNP, odd stat…)" },
+};
+
+function DataChecks() {
+  const { data, setData, loading } = useApi<{ items: CheckItem[]; players: Player[] }>("/admin/checks");
+  const [filter, setFilter] = useState<CheckItem["check"]["status"] | "all">("mismatch");
+  const { run, el } = useToast();
+  if (loading && !data) return <Spinner label="Auditing the books…" />;
+  const items = data?.items ?? [];
+  const players = Object.fromEntries((data?.players ?? []).map((p) => [p.id, p]));
+  const counts = items.reduce<Record<string, number>>((acc, i) => ({ ...acc, [i.check.status]: (acc[i.check.status] ?? 0) + 1 }), {});
+  const shown = items.filter((i) => filter === "all" || i.check.status === filter);
+  const act = (i: CheckItem, body: { action: string; result?: Result }, msg: string) =>
+    run(async () => {
+      await post(`/admin/checks/${i.betId}/${i.playerId}`, body);
+      setData((d) => (d ? { ...d, items: d.items.filter((x) => !(x.betId === i.betId && x.playerId === i.playerId)) } : d));
+    }, msg);
+  return (
+    <div>
+      {el}
+      <p className="text-sm text-ink-2 mt-4">Legs where ESPN and the records disagree, or the tracker needs a human. Changing an old result updates stats only — who was bozo stays as it happened.</p>
+      <div className="flex gap-1.5 mt-3 overflow-x-auto no-scrollbar">
+        {(["mismatch", "ambiguous", "review", "unresolved", "all"] as const).map((f) => (
+          <button key={f} onClick={() => setFilter(f)} className={`chip !py-1.5 !px-3 whitespace-nowrap ${filter === f ? "bg-accent text-white" : "bg-surface-2 text-ink-2"}`}>
+            {f === "all" ? "All" : CHECK_INFO[f].label} {f === "all" ? items.length : counts[f] ?? 0}
+          </button>
+        ))}
+      </div>
+      {filter !== "all" && <p className="text-xs text-muted mt-2 px-1">{CHECK_INFO[filter].help}</p>}
+      <div className="grid gap-2 mt-3">
+        {!shown.length && <div className="card p-6 text-center text-ink-2">Nothing here. The books are clean. 🧼</div>}
+        {shown.map((i) => {
+          const info = CHECK_INFO[i.check.status];
+          return (
+            <div key={`${i.betId}-${i.playerId}`} className="card p-3.5" style={{ boxShadow: `inset 4px 0 0 ${info.color}` }}>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="chip" style={{ boxShadow: `inset 0 0 0 1.5px ${info.color}`, color: info.color }}>{info.label}</span>
+                <Link to={`/bets/${i.betId}`} className="text-muted underline">{i.title ?? i.date}</Link>
+                <span className="ml-auto text-muted">{players[i.playerId]?.displayName}</span>
+              </div>
+              <div className="font-semibold mt-2">{i.text} <span className="font-mono text-sm text-ink-2">{fmtOdds(i.odds)}</span></div>
+              {i.game && <div className="text-xs text-muted">{i.game}</div>}
+              <div className="flex gap-3 text-sm mt-2">
+                <span>Recorded: <b>{i.result ?? "—"}</b></span>
+                {i.check.espnResult && <span>ESPN: <b>{i.check.espnResult}</b></span>}
+              </div>
+              {i.check.note && <div className="text-xs text-ink-2 mt-1">{i.check.note}</div>}
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                <button className="btn btn-ghost !min-h-9 text-sm" onClick={() => act(i, { action: "keep" }, "Kept as recorded")}>Keep {i.result ?? "as is"}</button>
+                {i.check.espnResult && i.check.espnResult !== i.result && (
+                  <button className="btn btn-primary !min-h-9 text-sm" onClick={() => act(i, { action: "espn" }, `Changed to ${i.check.espnResult}`)}>Use ESPN ({i.check.espnResult})</button>
+                )}
+                {(["W", "L", "P"] as const).filter((r) => r !== i.result && r !== i.check.espnResult).map((r) => (
+                  <button key={r} className="btn btn-ghost !min-h-9 !px-3 text-sm" onClick={() => act(i, { action: "set", result: r }, `Set to ${r}`)}>Set {r}</button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

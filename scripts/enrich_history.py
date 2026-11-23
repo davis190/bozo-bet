@@ -25,6 +25,16 @@ def _hook(model, u, _ms):
     usage["out"] += u.get("outputTokens", 0)
 
 
+def _check(leg, status, note=None, espn=None):
+    """Record what needs a human. Never overrides an admin's earlier decision."""
+    if (leg.get("check") or {}).get("status") in ("dismissed", "fixed"):
+        return
+    if status == "ok":
+        leg.pop("check", None)
+    else:
+        leg["check"] = {"status": status, "note": (note or "")[:300], "espnResult": espn, "at": tracker.now_iso()}
+
+
 def one(bet, leg):
     try:
         if not (leg.get("parsed") or {}).get("sport"):
@@ -34,16 +44,24 @@ def one(bet, leg):
         spec = {**tracker.resolve(leg, bet["date"], cache), "resolvedAt": tracker.now_iso()}
         leg["track"] = spec
         if not spec.get("found"):
+            _check(leg, "unresolved", spec.get("reason"))
             db.put_leg(bet, leg)
             return ("unresolved", bet, leg, spec.get("reason"))
         s = games.summary(spec["league"], spec["eventId"], cache)
         live = tracker.evaluate(spec, s)
         leg["enrichment"] = enrich.derive({"sport": leg["parsed"].get("sport"), **spec}, s, live)
+        got, kind, note = live.get("result"), "ok", None
+        if live.get("needsReview"):
+            kind, note = "review", live.get("detail")
+        elif got and leg.get("result") and got != leg["result"]:
+            note = f"recorded {leg['result']}, ESPN says {got}: {live.get('detail')} ({s.get('name') or ' vs '.join(t['abbr'] for t in s['teams'])}, {(s.get('start') or '')[:10]})"
+            # another game in the series agreeing with the sheet means we likely picked the wrong game, not a sheet error
+            others = [i for i in spec.get("candidateEventIds") or [] if i != spec["eventId"]]
+            agree = [i for i in others if tracker.evaluate(spec, games.summary(spec["league"], i, cache)).get("result") == leg["result"]]
+            kind = "ambiguous" if agree or spec.get("ambiguous") else "mismatch"
+        _check(leg, kind, note, got)
         db.put_leg(bet, leg)
-        got = live.get("result")
-        if got and leg.get("result") and got != leg["result"]:
-            return ("mismatch", bet, leg, f"recorded {leg['result']}, ESPN says {got}: {live.get('detail')}")
-        return ("ok", bet, leg, None)
+        return (kind, bet, leg, note)
     except Exception as e:
         return ("error", bet, leg, f"{type(e).__name__}: {str(e)[:150]}")
 
@@ -60,7 +78,7 @@ def main():
             for l in rules.counted_legs(b) if a.force or not l.get("enrichment")]
     if a.from_report:
         prev = json.loads((Path(__file__).parent / "out" / "enrich_report.json").read_text())
-        flagged = {(x["bet"], x["player"]) for k in ("mismatch", "unresolved", "error") for x in prev.get(k, [])}
+        flagged = {(x["bet"], x["player"]) for k in ("mismatch", "ambiguous", "unresolved", "review", "error") for x in prev.get(k, [])}
         jobs = [(b, l) for b in db.all_data() if b["status"] == "CLOSED"
                 for l in rules.counted_legs(b) if (b["id"], l["playerId"]) in flagged]
     jobs = jobs[: a.limit or None]

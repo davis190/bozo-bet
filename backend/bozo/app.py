@@ -284,6 +284,48 @@ def admin_close_vote(req):
     return _present(req, bet)
 
 
+OPEN_CHECKS = ("mismatch", "ambiguous", "unresolved", "review")
+
+
+@route("GET", "/api/admin/checks", "admin")
+def admin_checks(req):
+    items = []
+    for b in db.all_data():
+        for l in rules.counted_legs(b):
+            c = l.get("check") or {}
+            if c.get("status") in OPEN_CHECKS:
+                items.append({"betId": b["id"], "date": b["date"], "kind": b["kind"], "title": b.get("title"),
+                              "playerId": l["playerId"], "text": l["text"], "odds": l.get("odds"), "result": l.get("result"),
+                              "check": c, "game": (l.get("enrichment") or {}).get("game")})
+    order = {s: i for i, s in enumerate(OPEN_CHECKS)}
+    items.sort(key=lambda x: (order[x["check"]["status"]], x["date"]), reverse=False)
+    return {"items": items, "players": views.players(db.list_players(), True)}
+
+
+@route("POST", "/api/admin/checks/{betId}/{playerId}", "admin")
+def admin_resolve_check(req):
+    """keep = recorded result stands; espn = take ESPN's; set = admin's own W/L/P.
+    Changing a closed bet's leg updates stats only; who was bozo stays as it happened."""
+    bet = _bundle(req.params["betId"])
+    leg = next((l for l in bet["legs"] if l["playerId"] == req.params["playerId"]), None)
+    if not leg or not leg.get("check"):
+        raise ApiError(404, "Nothing to check here")
+    action = req.body.get("action")
+    if action == "keep":
+        leg["check"]["status"] = "dismissed"
+    elif action in ("espn", "set"):
+        result = leg["check"].get("espnResult") if action == "espn" else req.body.get("result")
+        if result not in rules.RESULTS:
+            raise ApiError(400, "Need a W, L or P")
+        leg["check"].update(status="fixed", previous=leg.get("result"))
+        leg["result"], leg["resultSource"] = result, "admin"
+    else:
+        raise ApiError(400, "action must be keep, espn or set")
+    leg["check"].update(by=req.user.get("email"), resolvedAt=now_iso())
+    db.put_leg(bet, leg)
+    return {"ok": True}
+
+
 @route("POST", "/api/admin/slack-extract", "admin")
 def admin_slack_extract(req):
     players = db.list_players()

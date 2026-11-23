@@ -33,7 +33,9 @@ SPEC_SCHEMA = {
         "found": {"type": "boolean", "description": "false if the game can't be identified"},
         "sport": {"type": "string"},
         "league": {"type": "string", "description": "ESPN league path from find_games, e.g. football/nfl"},
-        "eventId": {"type": "string"},
+        "eventId": {"type": "string", "description": "the most likely game"},
+        "candidateEventIds": {"type": "array", "items": {"type": "string"},
+                              "description": "EVERY game in the window this bet could be about (e.g. all games of a series), including eventId"},
         "kind": {"type": "string", "enum": ["moneyline", "spread", "game_total", "team_total", "player_stat", "team_stat", "game_stat"],
                  "description": "team_total/game_total = POINTS. team_stat/game_stat = counted plays (touchdowns or field goals) for one team / both teams"},
         "stat": {"type": "string", "enum": ["TD", "FG"], "description": "team_stat/game_stat only"},
@@ -68,14 +70,16 @@ TOOLS = [
 ]
 
 RESOLVER_PROMPT = """You map a casually written sports bet to the exact game and stat to track, using the tools.
-The bet was placed for a parlay dated {date}; its game is usually within a few days of that date (Thursday-Monday for NFL).
+The parlay is dated {date}. That's roughly when the bet was placed, not necessarily game day: the game is usually
+on that date or up to 7 days after it (odds are posted about a week out), occasionally the day before.
+Search from {lo} to {hi}.
 Group conventions: 'O'/'U' = over/under, 'ML' = moneyline, 'ATD' = anytime touchdown (rushing+receiving TDs over 0.5),
 'tuddies' = touchdowns, 'X+' = over X-0.5, 'TT' = team total, 'alt' lines are just spreads.
 For a quarterback, 'TD'/'TDs' means passing TDs unless it says rush/rushing or ATD.
 'Packers O 2.5 TDs' = team_stat TD; 'SF/WAS O 5.5 TD' = game_stat TD; 'over 3.5 field goals' = game_stat FG.
 Team nicknames/typos happen: Redskins = WSH, TEX = HOU (Texans), 'Commandos' = Commanders.
-NFL games run Thursday-Monday around the parlay date. For daily sports (MLB, NBA, NHL, college basketball, soccer)
-teams play on back-to-back days, so pick the game ON the parlay date, or the next day if there is none.
+Teams in daily sports (MLB, NBA, NHL, college basketball) play series on back-to-back days. Don't guess between them:
+put every game of that matchup in the window into candidateEventIds; code picks the one whose market odds match the bet.
 Unsupported (respond found=false, reason 'unsupported market'): first-half/quarter bets, regulation-only, both teams to score,
 odd/even, double chance / 'or tie', futures, tennis, golf, cricket, AFL, CFL.
 Two teams separated by '/', 'vs' or '-' with O/U means the game total.
@@ -94,8 +98,8 @@ def _tool(name, args, cache):
                  "teams": [f"{t['abbr']} ({t['name']}){' home' if t['home'] else ''}" for t in g["teams"]]} for g in gs[:40]]
     if name == "find_player":
         lo, hi = games.as_date(args["date_from"]), games.as_date(args["date_to"])
-        if (hi - lo).days > 6:
-            return {"error": "date range too wide for a player search (max 6 days)"}
+        if (hi - lo).days > 9:
+            return {"error": "date range too wide for a player search (max 9 days)"}
         hits = []
         for g in games.find_games(args["sport"], lo, hi):
             if g["state"] == "pre":
@@ -146,9 +150,53 @@ def normalize(spec, text):
     return spec
 
 
-def resolve(leg, bet_date, cache=None, model=None):
-    """Agent loop, then deterministic normalization."""
-    return normalize(_resolve(leg, bet_date, cache, model), leg["text"])
+def resolve(leg, bet_date, cache=None, model=None, after=None):
+    """Agent loop, then deterministic normalization and game choice."""
+    cache = {} if cache is None else cache
+    spec = normalize(_resolve(leg, bet_date, cache, model), leg["text"])
+    return choose_event(spec, leg, bet_date, cache, after) if spec.get("found") else spec
+
+
+def _market_distance(spec, leg, s):
+    """How far this game's closing market is from what was bet. None = no signal."""
+    kind, line, odds = spec.get("kind"), spec.get("line"), leg.get("odds")
+    if kind == "moneyline" and odds is not None and spec.get("team") in (s.get("marketML") or {}):
+        a, b = odds, s["marketML"][spec["team"]]
+        return abs((a if a > 0 else 10000 / -a) - (b if b > 0 else 10000 / -b))  # compare in "plus" space
+    if kind == "spread" and line is not None and s.get("marketSpread") is not None and s.get("favorite"):
+        market = -abs(s["marketSpread"]) if spec.get("team") == s["favorite"] else abs(s["marketSpread"])
+        return abs(float(line) - market) * 10
+    if kind == "game_total" and line is not None and s.get("marketTotal") is not None:
+        return abs(float(line) - s["marketTotal"]) * 10
+    return None
+
+
+def choose_event(spec, leg, bet_date, cache, after=None):
+    """Pick among back-to-back candidate games: closest market odds, else the first game on/after the bet."""
+    ids = list(dict.fromkeys([spec["eventId"]] + [i for i in spec.get("candidateEventIds") or [] if i]))
+    if len(ids) < 2:
+        return spec
+    cands = []
+    for i in ids:
+        try:
+            s = games.summary(spec["league"], i, cache)
+        except Exception:
+            continue
+        start = games.parse_iso(s.get("start"))
+        cands.append((i, start, _market_distance(spec, leg, s)))
+    if not cands:
+        return spec
+    floor = after or games.parse_iso(f"{bet_date}T00:00:00-06:00")
+    on_after = [c for c in cands if c[1] and c[1] >= floor - timedelta(hours=6)] or cands
+    scored = [c for c in on_after if c[2] is not None]
+    if scored and len(scored) == len(on_after):
+        best = min(scored, key=lambda c: (c[2], c[1]))
+        how = "closest market odds"
+    else:
+        best = min(on_after, key=lambda c: c[1] or floor)
+        how = "first game on/after the bet"
+    return {**spec, "eventId": best[0], "candidateEventIds": [c[0] for c in cands], "chosenBy": how,
+            "ambiguous": len(on_after) > 1 and how != "closest market odds"}
 
 
 def _resolve(leg, bet_date, cache=None, model=None):
@@ -156,7 +204,9 @@ def _resolve(leg, bet_date, cache=None, model=None):
     cache = {} if cache is None else cache
     sport = (leg.get("parsed") or {}).get("sport")
     msg = f"Bet: {leg['text']}" + (f"\nLikely sport: {sport}" if sport else "")
-    system = RESOLVER_PROMPT.format(date=bet_date, keys=json.dumps(games.STAT_KEYS))
+    d = games.as_date(bet_date)
+    system = RESOLVER_PROMPT.format(date=bet_date, lo=d - timedelta(days=1), hi=d + timedelta(days=7),
+                                    keys=json.dumps(games.STAT_KEYS))
     messages = [{"role": "user", "content": [{"text": msg}]}]
     for _ in range(10):
         resp = llm._converse(modelId=model or llm.MODELS["track"], system=[{"text": system}], messages=messages,
@@ -315,13 +365,15 @@ def run(bet_id, reason="scheduled"):
         spec = leg.get("track")
         if not spec or not spec.get("found"):
             try:
-                spec = {**resolve(leg, bet["date"], cache), "resolvedAt": now_iso()}
+                locked = games.parse_iso(bet.get("lockedAt")) if bet.get("lockedAt") else None
+                spec = {**resolve(leg, bet["date"], cache, after=locked), "resolvedAt": now_iso()}
             except ApiError as e:
                 spec = {"found": False, "reason": e.message}
             leg["track"] = spec
         if not spec.get("found"):
             leg["live"] = {"status": "IN_DOUBT", "detail": f"Tracker couldn't find this one: {spec.get('reason', '')[:120]}",
                            "needsReview": True, "updatedAt": now_iso()}
+            leg["check"] = {"status": "unresolved", "note": spec.get("reason", "")[:300], "at": now_iso()}
             db.put_leg(bet, leg)
             lines.append(f"❓ {name}: {leg['text']} — can't find it ({spec.get('reason', '')[:80]})")
             continue
@@ -335,6 +387,8 @@ def run(bet_id, reason="scheduled"):
             live = {"status": "IN_DOUBT", "detail": f"Data hiccup: {str(e)[:80]}", "updatedAt": now_iso()}
         got = live.pop("result", None)
         leg["live"] = live
+        if live.get("needsReview"):
+            leg["check"] = {"status": "review", "note": live.get("detail", ""), "at": now_iso()}
         if got and not live.get("needsReview"):
             if leg.get("result") and leg["result"] != got:
                 mismatches.append(f"{name}: recorded {leg['result']}, tracker says {got}")
