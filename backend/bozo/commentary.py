@@ -5,7 +5,7 @@ import logging
 import re
 
 from . import bets as rules
-from . import llm
+from . import llm, slack
 from .util import now_iso
 
 log = logging.getLogger()
@@ -99,8 +99,9 @@ def build(bet, players, model=None):
     try:
         out = llm.structured(SYSTEM, prompt, SCHEMA, model=model, max_tokens=1200, task="commentary")
         takes = {t["label"].strip(): t for t in out.get("takes", [])}
-    except Exception:
+    except Exception as e:
         log.exception("ballot commentary failed for %s", bet.get("id"))
+        slack.ops_error(f"Ballot commentary for {bet.get('id')} (ballot posted without it)", e)
         takes = {}
     banned, allowed = _names(players), " ".join(l.get("text") or "" for l in legs.values())
     for b in ballot:
@@ -109,6 +110,7 @@ def build(bet, players, model=None):
             b["headline"], b["take"] = t["headline"].strip(), t["take"].strip()
         elif t:
             log.warning("dropped commentary for %s: names a group member", b["label"])
+            slack.ops(f":see_no_evil: Dropped ballot commentary for {b['label']} on {bet.get('id')}: it named a group member.")
     return ballot
 
 

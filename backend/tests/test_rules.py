@@ -237,6 +237,7 @@ def test_ballot_is_nameless_shuffled_and_drops_leaky_commentary(fake, monkeypatc
         return {"takes": [{"label": "Bet A", "headline": "Burrow left it in the tunnel", "take": "Joe Burrow, -150, nothing. Pure chalk."},
                           {"label": "Bet B", "headline": "Classic Devan move", "take": "Bears."}]}
     monkeypatch.setattr(llm, "structured", fake_llm)
+    monkeypatch.setattr(commentary.slack, "ops", lambda *a, **k: None)
     ballot = commentary.build(bet, players)
     assert [b["label"] for b in ballot] == ["Bet A", "Bet B"] and {b["playerId"] for b in ballot} == {"p1", "p2"}
     assert "Smith" not in seen["prompt"] and "Devan" not in seen["prompt"] and "Kurtz" not in seen["prompt"]

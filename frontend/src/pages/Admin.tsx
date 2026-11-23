@@ -540,8 +540,13 @@ function Settings() {
       </Section>
       <Section title="Slack">
         <div className="card p-4 grid gap-3">
-          <Field label="Main channel webhook"><input className="input font-mono text-xs" placeholder="https://hooks.slack.com/services/…" value={data.slackWebhookMain} onChange={(e) => set("slackWebhookMain", e.target.value)} /></Field>
-          <Field label="Logs channel webhook"><input className="input font-mono text-xs" placeholder="https://hooks.slack.com/services/…" value={data.slackWebhookLogs} onChange={(e) => set("slackWebhookLogs", e.target.value)} /></Field>
+          <Field label="#main channel ID (everyone)"><input className="input font-mono text-xs" placeholder="C0…" value={data.slackChannelMain} onChange={(e) => set("slackChannelMain", e.target.value.trim())} /></Field>
+          <Field label="#ops channel ID (tracker runs, errors, new logins)"><input className="input font-mono text-xs" placeholder="C0…" value={data.slackChannelOps} onChange={(e) => set("slackChannelOps", e.target.value.trim())} /></Field>
+          <div className="text-xs text-muted">Channel ID is at the bottom of the channel's About tab. Invite the bot to both. Save first, then test.</div>
+          <button className="btn btn-ghost" onClick={() => run(async () => {
+            const r = await post<{ main: boolean; ops: boolean }>("/admin/slack-test", {});
+            if (!r.main || !r.ops) throw new Error(`Couldn't post to ${[!r.main && "main", !r.ops && "ops"].filter(Boolean).join(" + ")}. Is the bot in the channel?`);
+          }, "Test posts sent 👋")}>Send test posts</button>
         </div>
       </Section>
       <Section title="Live tracker">

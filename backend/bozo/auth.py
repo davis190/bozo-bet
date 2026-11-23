@@ -28,6 +28,10 @@ def resolve(event):
         if email in _admin_emails():
             user.update(role="admin", playerId=os.environ.get("ADMIN_PLAYER_ID"))
         db.put_user(user)
+        if user["role"] == "none":
+            from . import slack
+            slack.ops(f":bust_in_silhouette: New login waiting for access: *{user['name']}* ({email}). "
+                      f"Assign them in <{slack.SITE}/admin|Admin → People>.")
     elif email in _admin_emails() and user.get("role") != "admin":
         user["role"] = "admin"
         db.put_user(user)

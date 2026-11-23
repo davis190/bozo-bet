@@ -7,7 +7,7 @@ import re
 
 import boto3
 
-from . import commentary, auth, db, llm, slack, stats, views
+from . import auth, commentary, db, llm, slack, stats, views
 from . import bets as rules
 from .util import ApiError, new_id, now_iso, response, today_ct
 
@@ -121,10 +121,10 @@ def get_stats(req):
 def _notify_leg(bet, leg, was_complete):
     players = _players()
     try:
-        if leg.get("source") == "app":
-            slack.leg_submitted(bet, leg, players)
         active = [p for p in players.values() if p.get("active")]
         complete = len(rules.counted_legs(bet)) >= len(active)
+        if leg.get("source") == "app" and not complete:
+            slack.leg_submitted(bet, leg, players, count=(len(rules.counted_legs(bet)), len(active)))
         if complete:
             slack.legs_summary(bet, players, changed=was_complete)
     except Exception:
@@ -169,6 +169,8 @@ def vote(req):
     bet = rules.cast_vote(_bundle(req.params["betId"]), pid, req.body.get("candidateId"))
     if bet["status"] == "CLOSED":
         slack.vote_results(bet, _players())
+    elif bet.get("tie") and rules.votes_revealed(bet):
+        slack.vote_tie(bet, _players())
     return _present(req, bet)
 
 
@@ -179,6 +181,8 @@ def admin_create_bet(req):
     settings = db.get_settings()
     bet = rules.create_bet(b.get("kind", "bozo"), b.get("date") or today_ct(), b.get("wager") or settings["defaultWager"],
                            bozo_id=b.get("bozoId"), title=b.get("title"), betting_floor=b.get("bettingFloor"))
+    if bet["kind"] == "bozo":
+        slack.bet_open(bet, _players())
     return _present(req, bet)
 
 
@@ -235,11 +239,15 @@ def admin_slip_extract(req):
 @route("POST", "/api/admin/bets/{betId}/lock", "admin")
 def admin_lock(req):
     b = req.body
-    bet = rules.lock(_bundle(req.params["betId"]), b.get("slipKey"), b.get("totalOdds"), b.get("legOdds"))
+    bet = _bundle(req.params["betId"])
+    first = bet["status"] == "OPEN"
+    rules.lock(bet, b.get("slipKey"), b.get("totalOdds"), b.get("legOdds"))
     if b.get("wager"):
         bet["wager"] = b["wager"]
     if b.get("toWin"):
         bet["toWin"] = b["toWin"]
+    if first and bet["kind"] == "bozo":
+        bet["slack"] = {**(bet.get("slack") or {}), "lockTs": slack.slip_locked(bet, _players())}
     rules._save_meta(bet)
     _start_tracker(bet["id"], "slip locked")
     return _present(req, bet)
@@ -277,6 +285,13 @@ def admin_reload(req):
                        req.body.get("date") or today_ct())
     slack.new_bozo(old, _players())
     return _present(req, new)
+
+
+@route("POST", "/api/admin/slack-test", "admin")
+def admin_slack_test(req):
+    s = db.get_settings()
+    return {"main": bool(slack.main(":wave: Bozo Bet test post. If you can read this, the bot works.", s)),
+            "ops": bool(slack.ops(":satellite: Ops channel test post.", s))}
 
 
 @route("POST", "/api/admin/bets/{betId}/ballot", "admin")
@@ -358,10 +373,8 @@ def admin_get_settings(req):
 
 @route("PUT", "/api/admin/settings", "admin")
 def admin_put_settings(req):
-    s = db.get_settings()
-    for k in db.DEFAULT_SETTINGS:
-        if k in req.body:
-            s[k] = req.body[k]
+    current = db.get_settings()
+    s = {k: req.body.get(k, current[k]) for k in db.DEFAULT_SETTINGS}  # also drops retired keys (old webhooks)
     db.put_settings(s)
     return s
 
@@ -420,6 +433,7 @@ def handler(event, context):
         raise ApiError(404, f"No route {method} {path}")
     except ApiError as e:
         return response(e.status, {"error": e.message})
-    except Exception:
+    except Exception as e:
         log.exception("unhandled")
+        slack.ops_error(f"API {method} {path}", e)
         return response(500, {"error": "Something broke. Probably the bozo's fault."})

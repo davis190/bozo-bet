@@ -51,6 +51,7 @@ Globals:
         ADMIN_PLAYER_ID: !Ref AdminPlayerId
         LLM_MODELS: !Ref LlmModels
         TZ_NAME: America/Chicago
+        SLACK_SECRET_ID: bozobet/slack
 
 Resources:
   # ---------- Data ----------
@@ -180,6 +181,9 @@ Resources:
               Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream, bedrock:Converse]
               Resource: "*"
             - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:bozobet/slack-*"
+            - Effect: Allow
               Action: lambda:InvokeFunction
               Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:bozo-bet-tracker"
       Events:
@@ -210,6 +214,9 @@ Resources:
             - Effect: Allow
               Action: [bedrock:InvokeModel, bedrock:Converse]
               Resource: "*"
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:bozobet/slack-*"
       Events:
         Weekly:
           Type: ScheduleV2
@@ -234,6 +241,9 @@ Resources:
             - Effect: Allow
               Action: [bedrock:InvokeModel, bedrock:Converse]
               Resource: "*"
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:bozobet/slack-*"
             - Effect: Allow
               Action: [scheduler:CreateSchedule, scheduler:DeleteSchedule]
               Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/default/bozo-*"

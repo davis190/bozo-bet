@@ -147,8 +147,8 @@ def all_data():
 # ---------- settings ----------
 DEFAULT_SETTINGS = {
     "defaultWager": 10,
-    "slackWebhookMain": "",
-    "slackWebhookLogs": "",
+    "slackChannelMain": "",  # channel IDs (C…), bot token lives in Secrets Manager
+    "slackChannelOps": "",
     "oracleDailyLimit": 10,
     "trackerDefaultMinutes": 30,
     "trackerMaxRunsPerDay": 40,

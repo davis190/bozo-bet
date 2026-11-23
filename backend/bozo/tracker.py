@@ -19,8 +19,8 @@ from datetime import timedelta, timezone
 
 import boto3
 
-from . import commentary, bets as rules
-from . import db, enrich, games, llm, slack
+from . import bets as rules
+from . import commentary, db, enrich, games, llm, slack
 from .util import TZ, ApiError, now_iso
 
 log = logging.getLogger()
@@ -381,10 +381,11 @@ def run(bet_id, reason="scheduled"):
     tracker = bet.get("tracker") or {"runs": 0, "runsByDay": {}}
     today = games.utcnow().astimezone(TZ).date().isoformat()
     if tracker["runsByDay"].get(today, 0) >= int(settings.get("trackerMaxRunsPerDay") or 40):
-        slack.logs(f":octagonal_sign: Tracker hit the daily cap ({settings['trackerMaxRunsPerDay']} runs) for bet {bet['date']}. Stopping.", settings)
+        slack.ops(f":octagonal_sign: Tracker hit the daily cap ({settings['trackerMaxRunsPerDay']} runs) for bet {bet['date']}. Stopping.", settings)
         return {"stopped": "daily cap"}
 
-    cache, players, lines, mismatches = {}, _players(), [], []
+    cache, players, lines, mismatches, finals = {}, _players(), [], [], []
+    dead = any(l.get("result") == "L" for l in rules.counted_legs(bet))
     for leg in rules.counted_legs(bet):
         name = (players.get(leg["playerId"]) or {}).get("name", leg["playerId"])
         spec = leg.get("track")
@@ -419,8 +420,15 @@ def run(bet_id, reason="scheduled"):
                 mismatches.append(f"{name}: recorded {leg['result']}, tracker says {got}")
             elif not leg.get("result"):
                 leg["result"], leg["resultSource"] = got, "tracker"
+                finals.append(leg)
         db.put_leg(bet, leg)
         lines.append(f"{ICON.get(live['status'], '•')} {name}: {leg['text']} — {live.get('detail', '')}")
+
+    # New results go in the thread under the slip post; the leg that kills the parlay is broadcast
+    if bet["kind"] == "bozo":
+        for leg in finals:
+            slack.leg_final(bet, leg, players, first_loss=leg["result"] == "L" and not dead)
+            dead = dead or leg["result"] == "L"
 
     # Everything decided -> settle like the admin would
     outcome = None
@@ -446,7 +454,7 @@ def run(bet_id, reason="scheduled"):
         msg += "\n:warning: Doesn't match what was recorded: " + "; ".join(mismatches)
     if outcome:
         msg += f"\n:checkered_flag: All legs decided → settled ({outcome})"
-    slack.logs(msg, settings)
+    slack.ops(msg, settings)
     log.info(msg)
     return {"lines": lines, "next": tracker["nextRun"], "why": why, "mismatches": mismatches, "outcome": outcome}
 
@@ -489,4 +497,9 @@ def _schedule(bet, at, tracker):
 
 
 def handler(event, context):
-    return run(event["betId"], event.get("reason", "scheduled"))
+    try:
+        return run(event["betId"], event.get("reason", "scheduled"))
+    except Exception as e:
+        log.exception("tracker crashed")
+        slack.ops_error(f"Tracker run for {event.get('betId')}", e)
+        raise

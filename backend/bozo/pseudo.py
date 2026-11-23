@@ -2,7 +2,7 @@
 import logging
 import random
 
-from . import db, llm
+from . import db, llm, slack
 from .bets import counted_legs
 from .util import ApiError
 
@@ -52,4 +52,7 @@ def regenerate(only=None):
 
 
 def handler(event, context):
-    return regenerate()
+    names = regenerate()
+    real = {p["id"]: p["name"] for p in db.list_players()}
+    slack.ops(":performing_arts: Weekly public names rerolled:\n" + "\n".join(f"• {real.get(pid, pid)} → {n}" for pid, n in names.items()))
+    return names
