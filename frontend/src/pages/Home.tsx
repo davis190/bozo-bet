@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApi } from "../lib/api";
 import { login } from "../lib/auth";
-import { fmtDate, fmtMoney, fmtOdds, fmtPct } from "../lib/format";
+import { fmtDate, fmtMoney, fmtOdds, fmtPct, timeAgo } from "../lib/format";
 import { useSession } from "../lib/session";
 import type { Bet, Current, Stats } from "../lib/types";
 import { LegCard } from "../components/LegCard";
@@ -164,6 +164,12 @@ function BetSummary({ bet, legCount, activeCount, sweat }: { bet: Bet; legCount:
         <div className="mt-3">
           <div className="flex justify-between text-xs mb-1"><span className="font-bold">Sweat meter</span><span className="tabular">{sweat === 0 ? "Dead 💀" : `${fmtPct(sweat, 1)} alive`}</span></div>
           <div className="h-2 rounded-full bg-surface-2 overflow-hidden"><div className="h-full rounded-full bg-gold" style={{ width: `${Math.max(sweat * 100, sweat ? 2 : 0)}%` }} /></div>
+        </div>
+      )}
+      {bet.tracker?.lastRun && (
+        <div className="text-[11px] text-muted mt-3">
+          🛰️ Tracker checked {timeAgo(bet.tracker.lastRun)}
+          {bet.tracker.nextRun ? ` · next ${new Date(bet.tracker.nextRun).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" })} CT` : ` · ${bet.tracker.why ?? "off"}`}
         </div>
       )}
       {bet.slipUrl && <a href={bet.slipUrl} target="_blank" rel="noreferrer" className="block text-xs text-accent font-semibold mt-3">View the slip 🧾</a>}

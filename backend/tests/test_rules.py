@@ -126,3 +126,33 @@ def test_llm_schema_repair_and_required():
     out = {"legs": '[{"text": "Bills ML"}]'}  # cheap models love stringified JSON
     assert _validate(out, schema) == [] and out["legs"][0]["text"] == "Bills ML"
     assert _validate({"legs": [{}]}, schema) == ["$.legs[0].text is required"]
+
+
+def _game(state, scores, period=None, clock=None, players=None, league="football/nfl"):
+    return {"league": league, "id": "1", "state": state, "period": period, "clock": clock, "detail": state,
+            "teams": [{"abbr": a, "score": s} for a, s in scores.items()], "players": players or {}}
+
+
+def test_tracker_evaluate_spreads_totals_props():
+    from bozo.tracker import evaluate
+    final = _game("post", {"KC": 34, "ARI": 7})
+    assert evaluate({"kind": "spread", "team": "KC", "line": -16}, final)["result"] == "W"
+    assert evaluate({"kind": "spread", "team": "KC", "line": -27}, final)["result"] == "P"
+    assert evaluate({"kind": "moneyline", "team": "ARI"}, final)["result"] == "L"
+    assert evaluate({"kind": "game_total", "line": 46, "direction": "over"}, _game("post", {"NYG": 23, "JAX": 18}))["result"] == "L"
+    box = {"Josh Allen": {"_team": "BUF", "passing.TD": 1}}
+    assert evaluate({"kind": "player_stat", "player": "Josh Allen", "stats": ["passing.TD"], "line": 1.5}, _game("post", {"BUF": 26, "MIA": 9}, players=box))["result"] == "L"
+    # an over that's already cleared is won mid-game; an under that's blown is dead
+    live = _game("in", {"A": 30, "B": 20}, period=3, clock="5:00")
+    assert evaluate({"kind": "game_total", "line": 45.5, "direction": "over"}, live)["status"] == "WON"
+    assert evaluate({"kind": "game_total", "line": 45.5, "direction": "under"}, live)["status"] == "LOST"
+    # live moneyline up 18 at the half is on pace; down 3 is a sweat
+    assert evaluate({"kind": "moneyline", "team": "A"}, _game("in", {"A": 28, "B": 10}, period=2, clock="0:00"))["status"] == "ON_PACE"
+    assert evaluate({"kind": "moneyline", "team": "A"}, _game("in", {"A": 17, "B": 20}, period=4, clock="2:00"))["status"] == "IN_DOUBT"
+
+
+def test_tracker_player_name_matching():
+    from bozo.tracker import _find_player
+    players = {"Kenneth Walker III": {"x": 1}, "Amon-Ra St. Brown": {"x": 2}}
+    assert _find_player(players, "Kenneth Walker") == {"x": 1}
+    assert _find_player(players, "Amon-Ra St Brown") == {"x": 2}

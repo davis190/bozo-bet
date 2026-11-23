@@ -33,7 +33,7 @@ def players(ps, names):
     return [player(p, names) for p in sorted(ps, key=lambda p: p.get("slot", 99))]
 
 
-LEG_FIELDS = ("playerId", "text", "odds", "sgp", "parsed", "result", "live", "source", "submittedAt", "carriedOver", "enrichment")
+LEG_FIELDS = ("playerId", "text", "odds", "sgp", "parsed", "result", "resultSource", "live", "source", "submittedAt", "carriedOver", "enrichment")
 
 
 def bet(b, names, viewer_pid=None):

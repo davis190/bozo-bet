@@ -25,6 +25,7 @@ DEFAULT_MODELS = {
     "slip_fallback": SONNET,             # 1.00; also used when the first read is low-confidence
     "fun": "qwen.qwen3-next-80b-a3b",    # funniest names in human review, 1/8 Haiku's cost
     "fun_fallback": HAIKU,
+    "track": HAIKU,                      # tracker agent: leg -> game/stat spec (tool loop over ESPN)
     "writer": SONNET,                    # recaps / scouting reports (not yet evaluated)
 }
 MODELS = {**DEFAULT_MODELS, **json.loads(os.environ.get("LLM_MODELS") or "{}")}

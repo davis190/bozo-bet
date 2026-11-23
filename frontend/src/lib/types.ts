@@ -27,7 +27,8 @@ export interface Leg {
   carriedOver?: boolean;
   submittedAt?: string;
   parsed?: { sport?: string; market?: string; subject?: string; teams?: string[]; player?: string; stat?: string; line?: number };
-  live?: { status: LiveStatus; detail?: string; progress?: number; updatedAt?: string; nextCheck?: string };
+  live?: { status: LiveStatus; detail?: string; progress?: number | null; updatedAt?: string; state?: "pre" | "in" | "post"; needsReview?: boolean };
+  resultSource?: string;
   enrichment?: Record<string, unknown>;
 }
 
@@ -69,6 +70,7 @@ export interface Bet {
   slipUrl?: string;
   legs: Leg[];
   voting?: Voting;
+  tracker?: { runs: number; lastRun?: string; nextRun?: string | null; why?: string };
 }
 
 export interface Current {

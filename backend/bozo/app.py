@@ -240,7 +240,19 @@ def admin_lock(req):
     if b.get("toWin"):
         bet["toWin"] = b["toWin"]
     rules._save_meta(bet)
+    _start_tracker(bet["id"], "slip locked")
     return _present(req, bet)
+
+
+def _start_tracker(bet_id, reason):
+    boto3.client("lambda").invoke(FunctionName="bozo-bet-tracker", InvocationType="Event",
+                                  Payload=json.dumps({"betId": bet_id, "reason": reason}).encode())
+
+
+@route("POST", "/api/admin/bets/{betId}/track", "admin")
+def admin_track(req):
+    _start_tracker(req.params["betId"], "manual")
+    return {"started": True}
 
 
 @route("POST", "/api/admin/bets/{betId}/settle", "admin")

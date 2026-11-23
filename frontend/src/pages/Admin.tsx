@@ -158,6 +158,17 @@ function BetEditor({ bet, players, run, onChange, onNew }: { bet: Bet; players: 
 
       {(bet.status === "OPEN" || bet.status === "LOCKED") && <SlipPanel bet={bet} run={run} onChange={onChange} />}
 
+      {(bet.status === "LOCKED" || bet.status === "OPEN") && (
+        <Section title="Live tracker">
+          <div className="card p-4 grid gap-2 text-sm">
+            <div className="text-ink-2">
+              {bet.tracker?.lastRun ? `${bet.tracker.runs} runs · last ${new Date(bet.tracker.lastRun).toLocaleString()} · ${bet.tracker.nextRun ? `next ${new Date(bet.tracker.nextRun).toLocaleTimeString()}` : bet.tracker.why ?? "off"}` : "Starts automatically when the slip locks."}
+            </div>
+            <button className="btn btn-ghost" onClick={() => run(async () => { await post(`/admin/bets/${bet.id}/track`); setTimeout(onChange, 25000); }, "Tracker started — results in ~30s 🛰️")}>🛰️ Run tracker now</button>
+          </div>
+        </Section>
+      )}
+
       {bet.status === "LOCKED" && (
         <Section title="Settle">
           <div className="card p-4 grid gap-3">
@@ -213,12 +224,15 @@ function LegRow({ bet, p, leg, run, onChange, onResult }: { bet: Bet; p: Player;
     <div className="card p-3">
       <div className="flex items-center gap-2 mb-2">
         <Avatar p={p} size={28} /><span className="font-bold text-sm flex-1">{p.displayName}</span>
+        {leg?.live?.needsReview && <span className="chip" style={{ background: "var(--warn)", color: "#0b0b0b" }}>check me</span>}
+        {leg?.resultSource === "tracker" && <span className="chip bg-surface-2 text-muted">🛰️ auto</span>}
         {leg?.source && <span className="chip bg-surface-2 text-muted">{leg.source}</span>}
       </div>
       <div className="flex gap-2">
         <input className="input flex-1" placeholder="No leg yet" value={text} onChange={(e) => setText(e.target.value)} />
         <input className="input !w-20 font-mono" placeholder="odds" value={odds} onChange={(e) => setOdds(e.target.value)} />
       </div>
+      {leg?.live?.detail && <div className="text-xs text-ink-2 mt-1.5">{leg.live.detail}</div>}
       <div className="flex gap-1.5 mt-2 items-center">
         {(["W", "L", "P"] as const).map((r) => (
           <button key={r} disabled={!leg} onClick={() => onResult(p.id, leg?.result === r ? null : r)}
