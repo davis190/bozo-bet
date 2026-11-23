@@ -1,0 +1,17 @@
+# Source data contains real names — never commit it
+*.xlsx
+*.xls
+*.csv
+scripts/out/
+
+.aws-sam/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+node_modules/
+frontend/dist/
+frontend/public/config.json
+.env*
+.DS_Store

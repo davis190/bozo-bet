@@ -1,0 +1,345 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Bozo Bet - SPA, API, auth, data
+
+Parameters:
+  SiteDomain:
+    Type: String
+    Default: bozobet.claytondavis.dev
+  CertificateArn:
+    Type: String
+    Description: ACM cert (us-east-1) covering SiteDomain and *.SiteDomain
+  AuthDomainPrefix:
+    Type: String
+    Default: bozobet-claytondavis
+    Description: Cognito hosted-UI prefix domain (used until AuthCustomDomain is set)
+  AuthCustomDomain:
+    Type: String
+    Default: ""
+    Description: e.g. auth.bozobet.claytondavis.dev - requires SiteDomain to resolve first
+  GoogleClientId:
+    Type: String
+    Default: ""
+    Description: Google OAuth client id. Secret lives in Secrets Manager at bozobet/google-oauth (key client_secret)
+  AdminEmails:
+    Type: String
+    Default: claytondavis1991@gmail.com
+  AdminPlayerId:
+    Type: String
+    Default: p01
+  FastModelId:
+    Type: String
+    Default: us.anthropic.claude-haiku-5-5
+  SmartModelId:
+    Type: String
+    Default: us.anthropic.claude-sonnet-5-5
+
+Conditions:
+  HasGoogle: !Not [!Equals [!Ref GoogleClientId, ""]]
+  HasAuthCustomDomain: !Not [!Equals [!Ref AuthCustomDomain, ""]]
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Architectures: [arm64]
+    MemorySize: 512
+    Timeout: 29
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref Table
+        SLIP_BUCKET: !Ref SlipBucket
+        SITE_URL: !Sub "https://${SiteDomain}"
+        ADMIN_EMAILS: !Ref AdminEmails
+        ADMIN_PLAYER_ID: !Ref AdminPlayerId
+        FAST_MODEL_ID: !Ref FastModelId
+        SMART_MODEL_ID: !Ref SmartModelId
+        TZ_NAME: America/Chicago
+
+Resources:
+  # ---------- Data ----------
+  Table:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: bozo-bet
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+        - { AttributeName: gsi1pk, AttributeType: S }
+        - { AttributeName: gsi1sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: gsi1
+          KeySchema:
+            - { AttributeName: gsi1pk, KeyType: HASH }
+            - { AttributeName: gsi1sk, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+
+  SlipBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [PUT, GET]
+            AllowedOrigins: [!Sub "https://${SiteDomain}", "http://localhost:5173"]
+            AllowedHeaders: ["*"]
+            MaxAge: 3000
+
+  # ---------- Auth ----------
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: bozo-bet
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Schema:
+        - { Name: email, AttributeDataType: String, Mutable: true, Required: true }
+        - { Name: name, AttributeDataType: String, Mutable: true }
+
+  GoogleIdp:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasGoogle
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Google
+      ProviderType: Google
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: "{{resolve:secretsmanager:bozobet/google-oauth:SecretString:client_secret}}"
+        authorize_scopes: openid email profile
+      AttributeMapping:
+        email: email
+        name: name
+        email_verified: email_verified
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: bozo-bet-web
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+      CallbackURLs:
+        - !Sub "https://${SiteDomain}/auth/callback"
+        - http://localhost:5173/auth/callback
+      LogoutURLs:
+        - !Sub "https://${SiteDomain}/"
+        - http://localhost:5173/
+      SupportedIdentityProviders: !If [HasGoogle, [!Ref GoogleIdp], [COGNITO]]
+      ExplicitAuthFlows: [ALLOW_REFRESH_TOKEN_AUTH]
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 90
+      TokenValidityUnits: { AccessToken: hours, IdToken: hours, RefreshToken: days }
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      Domain: !If [HasAuthCustomDomain, !Ref AuthCustomDomain, !Ref AuthDomainPrefix]
+      CustomDomainConfig: !If
+        - HasAuthCustomDomain
+        - CertificateArn: !Ref CertificateArn
+        - !Ref AWS::NoValue
+
+  # ---------- API ----------
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Auth:
+        DefaultAuthorizer: Cognito
+        Authorizers:
+          Cognito:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}"
+              audience: [!Ref UserPoolClient]
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: bozo.app.handler
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Table }
+        - S3CrudPolicy: { BucketName: !Ref SlipBucket }
+        - Statement:
+            - Effect: Allow
+              Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream, bedrock:Converse]
+              Resource: "*"
+      Events:
+        Authed:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/{proxy+}
+            Method: ANY
+            Auth: { Authorizer: Cognito }
+        Public:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /public/{proxy+}
+            Method: ANY
+            Auth: { Authorizer: NONE }
+
+  PseudonymFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: bozo.pseudo.handler
+      Timeout: 120
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Table }
+        - Statement:
+            - Effect: Allow
+              Action: [bedrock:InvokeModel, bedrock:Converse]
+              Resource: "*"
+      Events:
+        Weekly:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 10 ? * TUE *)
+            ScheduleExpressionTimezone: America/Chicago
+
+  ApiLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ApiFunction}"
+      RetentionInDays: 30
+
+  # ---------- Site ----------
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  SiteOac:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: bozo-bet-site
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub "${SiteBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+
+  SpaRewrite:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: bozo-bet-spa-rewrite
+      AutoPublish: true
+      FunctionConfig: { Comment: Serve index.html for client-side routes, Runtime: cloudfront-js-2.0 }
+      FunctionCode: |
+        function handler(event) {
+          var r = event.request;
+          if (r.uri.indexOf('.') === -1) { r.uri = '/index.html'; }
+          return r;
+        }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Aliases: [!Ref SiteDomain]
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        HttpVersion: http2and3
+        DefaultRootObject: index.html
+        Origins:
+          - Id: site
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !Ref SiteOac
+            S3OriginConfig: { OriginAccessIdentity: "" }
+          - Id: api
+            DomainName: !Sub "${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+            CustomOriginConfig: { OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2] }
+        DefaultCacheBehavior:
+          TargetOriginId: site
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SpaRewrite.FunctionMetadata.FunctionARN
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # AllViewerExceptHostHeader
+          - PathPattern: /public/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+
+Outputs:
+  SiteBucketName:
+    Value: !Ref SiteBucket
+  DistributionId:
+    Value: !Ref Distribution
+  DistributionDomain:
+    Description: Point SiteDomain (CNAME) here
+    Value: !GetAtt Distribution.DomainName
+  ApiUrl:
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  AuthDomain:
+    Value: !If
+      - HasAuthCustomDomain
+      - !Ref AuthCustomDomain
+      - !Sub "${AuthDomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
+  AuthCustomDomainTarget:
+    Condition: HasAuthCustomDomain
+    Description: Point AuthCustomDomain (CNAME) here
+    Value: !GetAtt UserPoolDomain.CloudFrontDistribution
+  GoogleRedirectUri:
+    Description: Add this as an authorized redirect URI on the Google OAuth client
+    Value: !If
+      - HasAuthCustomDomain
+      - !Sub "https://${AuthCustomDomain}/oauth2/idpresponse"
+      - !Sub "https://${AuthDomainPrefix}.auth.${AWS::Region}.amazoncognito.com/oauth2/idpresponse"
+  TableName:
+    Value: !Ref Table

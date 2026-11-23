@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+/* "Neon sportsbook meets circus." Dark by default (bars, couches, 1am sweats). */
+:root {
+  color-scheme: dark;
+  --bg: #0d0d14;
+  --surface: #17171f;
+  --surface-2: #20202b;
+  --border: rgba(255, 255, 255, 0.09);
+  --ink: #f4f3f0;
+  --ink-2: #c3c2b7;
+  --muted: #8b8a92;
+  --accent: #ff3b5c; /* bozo red nose */
+  --gold: #ffd60a; /* crown */
+  --grid: #2c2c34;
+
+  /* status (fixed, never a series color). Always paired with icon + label. */
+  --good: #0ca30c;
+  --warn: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+
+  /* player identity by slot — validated categorical palette (dark steps) */
+  --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500;
+  --p5: #d55181; --p6: #9085e9; --p7: #e66767;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #efeee9;
+  --border: rgba(11, 11, 11, 0.1);
+  --ink: #141413;
+  --ink-2: #52514e;
+  --muted: #7a7974;
+  --accent: #e0123a;
+  --gold: #b8860b;
+  --grid: #e1e0d9;
+  --p1: #2a78d6; --p2: #eb6834; --p3: #1baf7a; --p4: #eda100;
+  --p5: #e87ba4; --p6: #6250d6; --p7: #e34948;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-gold: var(--gold);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --font-display: "Bowlby One", "Impact", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body { min-height: 100dvh; }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  min-height: 44px; padding: 0 1.1rem; border-radius: 14px;
+  font-weight: 700; transition: transform .08s ease, opacity .15s;
+}
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .45; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-ghost { background: var(--surface-2); color: var(--ink); }
+.btn-gold { background: var(--gold); color: #141413; }
+
+.input {
+  width: 100%; min-height: 44px; padding: .65rem .9rem; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--ink);
+  font-size: 16px; /* no iOS zoom */
+}
+.input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .15rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 700;
+}
+
+.pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 76px); }
+
+@keyframes wobble { 0%,100% { transform: rotate(-6deg) } 50% { transform: rotate(6deg) } }
+.wobble { animation: wobble 1.6s ease-in-out infinite; transform-origin: 50% 80%; }
+
+@keyframes pop { 0% { transform: scale(.6); opacity: 0 } 70% { transform: scale(1.08) } 100% { transform: scale(1); opacity: 1 } }
+.pop { animation: pop .45s cubic-bezier(.2,.9,.3,1.3) both; }
+
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 55%, transparent) } 100% { box-shadow: 0 0 0 10px transparent } }
+.live-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--good); animation: pulse-ring 1.6s infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wobble, .pop, .live-dot { animation: none; }
+}
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

@@ -1,0 +1,357 @@
+"""HTTP API entry point. /public/* is anonymous, /api/* requires a Cognito ID token."""
+import base64
+import json
+import logging
+import os
+import re
+
+import boto3
+
+from . import auth, db, llm, slack, stats, views
+from . import bets as rules
+from .util import ApiError, new_id, now_iso, response, today_ct
+
+log = logging.getLogger()
+log.setLevel(logging.INFO)
+
+ROUTES = []
+
+
+def route(method, pattern, role="public"):
+    rx = re.compile("^" + re.sub(r"\{(\w+)\}", r"(?P<\1>[^/]+)", pattern) + "$")
+
+    def deco(fn):
+        ROUTES.append((method, rx, role, fn))
+        return fn
+    return deco
+
+
+class Req:
+    def __init__(self, event, user, params):
+        self.event, self.user, self.params = event, user, params
+        self.query = event.get("queryStringParameters") or {}
+        body = event.get("body") or ""
+        if event.get("isBase64Encoded"):
+            body = base64.b64decode(body).decode()
+        self.body = json.loads(body) if body else {}
+        self.names = auth.can_see_names(user)
+
+
+def _players():
+    return {p["id"]: p for p in db.list_players()}
+
+
+def _bundle(bet_id):
+    b = db.get_bet_bundle(bet_id)
+    if not b:
+        raise ApiError(404, "No such bet")
+    return b
+
+
+def _present(req, b):
+    return views.bet(b, req.names, req.user.get("playerId"))
+
+
+# ---------------- shared read endpoints (public + authed variants) ----------------
+def current(req):
+    all_bets = db.list_bets()
+    bozo_id = rules.current_bozo_id(all_bets)
+    cur = rules.current_bet(all_bets)
+    open_side = [b for b in all_bets if b["kind"] == "side" and b["status"] != "CLOSED"]
+    last = next((b for b in reversed(all_bets) if b["kind"] == "bozo" and b["status"] == "CLOSED"), None)
+    return {
+        "currentBozoId": bozo_id,
+        "bet": _present(req, _bundle(cur["id"])) if cur else None,
+        "lastBet": _present(req, _bundle(last["id"])) if last else None,
+        "sideBets": [_present(req, _bundle(b["id"])) for b in open_side],
+        "players": views.players(db.list_players(), req.names),
+        "settings": {"defaultWager": db.get_settings()["defaultWager"]},
+    }
+
+
+route("GET", "/public/current")(current)
+route("GET", "/api/current", "none")(current)
+
+
+@route("GET", "/public/summary")
+def public_summary(req):
+    return stats.public_summary(db.all_data())
+
+
+@route("GET", "/api/me", "none")
+def me(req):
+    u = dict(req.user)
+    p = db.get_player(u["playerId"]) if u.get("playerId") else None
+    return {"user": u, "player": views.player(p, True) if p else None}
+
+
+@route("PUT", "/api/me/profile", "player")
+def update_profile(req):
+    p = db.get_player(auth.player_id(req.user))
+    allowed = {"avatar", "favoriteTeams", "roastLevel", "taunt", "bannedWords", "theme"}
+    for k, v in req.body.items():
+        if k in allowed:
+            p[k] = v
+    if p.get("roastLevel") not in (None, "mild", "spicy", "no mercy"):
+        raise ApiError(400, "roastLevel must be mild, spicy or no mercy")
+    db.put_player(p)
+    return views.player(p, True)
+
+
+@route("GET", "/api/bets", "viewer")
+def list_bets(req):
+    kind = req.query.get("kind")
+    out = [b for b in db.all_data() if not kind or b["kind"] == kind]
+    return {"bets": [_present(req, b) for b in reversed(out)], "players": views.players(db.list_players(), True)}
+
+
+@route("GET", "/api/bets/{betId}", "viewer")
+def get_bet(req):
+    return _present(req, _bundle(req.params["betId"]))
+
+
+@route("GET", "/api/stats", "viewer")
+def get_stats(req):
+    q = req.query
+    return stats.compute(db.all_data(), db.list_players(), q.get("from"), q.get("to"), q.get("kind", "bozo"))
+
+
+# ---------------- player actions ----------------
+def _notify_leg(bet, leg, was_complete):
+    players = _players()
+    try:
+        if leg.get("source") == "app":
+            slack.leg_submitted(bet, leg, players)
+        active = [p for p in players.values() if p.get("active")]
+        complete = len(rules.counted_legs(bet)) >= len(active)
+        if complete:
+            slack.legs_summary(bet, players, changed=was_complete)
+    except Exception:
+        log.exception("notify failed")
+
+
+@route("POST", "/api/legs/parse", "player")
+def parse_leg(req):
+    """Free text -> structured leg + a reality check from your own history."""
+    raw = (req.body.get("text") or "").strip()
+    if not raw:
+        raise ApiError(400, "Type a bet first")
+    parsed = llm.parse_leg(raw)
+    pid = auth.player_id(req.user)
+    s = stats.compute(db.all_data(), db.list_players())
+    me_ = next((p for p in s["players"] if p["playerId"] == pid), None)
+    history = []
+    if me_:
+        p = parsed.get("parsed", {})
+        for key, val in (("sport", p.get("sport")), ("market", p.get("market")), ("subject", p.get("subject"))):
+            r = (me_["splits"].get(key) or {}).get(val)
+            if r and r["w"] + r["l"] >= 3:
+                history.append({"label": f"{val} bets", "w": r["w"], "l": r["l"], "pct": r["pct"]})
+    cur = rules.current_bet(db.list_bets())
+    return {"leg": parsed, "history": history,
+            "floorWarning": rules.floor_warning(cur, parsed.get("odds")) if cur else None}
+
+
+@route("PUT", "/api/bets/{betId}/my-leg", "player")
+def submit_my_leg(req):
+    pid = auth.player_id(req.user)
+    bet = _bundle(req.params["betId"])
+    was_complete = len(rules.counted_legs(bet)) >= len([p for p in _players().values() if p.get("active")])
+    leg = rules.upsert_leg(bet, pid, req.body, "app")
+    _notify_leg(bet, leg, was_complete)
+    return {"bet": _present(req, bet), "floorWarning": rules.floor_warning(bet, leg.get("odds"))}
+
+
+@route("POST", "/api/bets/{betId}/vote", "player")
+def vote(req):
+    pid = auth.player_id(req.user)
+    bet = rules.cast_vote(_bundle(req.params["betId"]), pid, req.body.get("candidateId"))
+    if bet["status"] == "CLOSED":
+        slack.vote_results(bet, _players())
+    return _present(req, bet)
+
+
+# ---------------- admin ----------------
+@route("POST", "/api/admin/bets", "admin")
+def admin_create_bet(req):
+    b = req.body
+    settings = db.get_settings()
+    bet = rules.create_bet(b.get("kind", "bozo"), b.get("date") or today_ct(), b.get("wager") or settings["defaultWager"],
+                           bozo_id=b.get("bozoId"), title=b.get("title"), betting_floor=b.get("bettingFloor"))
+    return _present(req, bet)
+
+
+@route("PATCH", "/api/admin/bets/{betId}", "admin")
+def admin_update_bet(req):
+    bet = _bundle(req.params["betId"])
+    editable = {"date", "title", "wager", "bettingFloor", "bozoId", "totalOdds", "toWin", "payout", "perPerson",
+                "nextBozoId", "nextBozoMethod", "status", "result", "notes"}
+    for k, v in req.body.items():
+        if k in editable:
+            bet[k] = v
+    rules._touch(bet)
+    rules._save_meta(bet)
+    return _present(req, bet)
+
+
+@route("PUT", "/api/admin/bets/{betId}/legs/{playerId}", "admin")
+def admin_set_leg(req):
+    bet = _bundle(req.params["betId"])
+    was_complete = len(rules.counted_legs(bet)) >= len([p for p in _players().values() if p.get("active")])
+    leg = rules.upsert_leg(bet, req.params["playerId"], req.body, req.body.get("source", "admin"), admin=True)
+    if bet["status"] == "OPEN":
+        _notify_leg(bet, leg, was_complete)
+    return _present(req, bet)
+
+
+@route("DELETE", "/api/admin/bets/{betId}/legs/{playerId}", "admin")
+def admin_delete_leg(req):
+    db.delete_leg(req.params["betId"], req.params["playerId"])
+    return _present(req, _bundle(req.params["betId"]))
+
+
+@route("POST", "/api/admin/bets/{betId}/slip-upload", "admin")
+def admin_slip_upload(req):
+    ext = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/heic": "heic"}.get(req.body.get("contentType"), "jpg")
+    key = f"slips/{req.params['betId']}/{new_id('slip')}.{ext}"
+    url = boto3.client("s3").generate_presigned_url(
+        "put_object", Params={"Bucket": os.environ["SLIP_BUCKET"], "Key": key, "ContentType": req.body.get("contentType", "image/jpeg")},
+        ExpiresIn=600)
+    return {"uploadUrl": url, "key": key}
+
+
+@route("POST", "/api/admin/bets/{betId}/slip-extract", "admin")
+def admin_slip_extract(req):
+    bet = _bundle(req.params["betId"])
+    key = req.body["key"]
+    fmt = {"png": "png", "jpg": "jpeg", "jpeg": "jpeg", "webp": "webp"}.get(key.rsplit(".", 1)[-1])
+    if not fmt:
+        raise ApiError(400, "Use a PNG, JPEG or WebP image")
+    img = boto3.client("s3").get_object(Bucket=os.environ["SLIP_BUCKET"], Key=key)["Body"].read()
+    return llm.extract_slip(img, fmt, rules.counted_legs(bet))
+
+
+@route("POST", "/api/admin/bets/{betId}/lock", "admin")
+def admin_lock(req):
+    b = req.body
+    bet = rules.lock(_bundle(req.params["betId"]), b.get("slipKey"), b.get("totalOdds"), b.get("legOdds"))
+    if b.get("wager"):
+        bet["wager"] = b["wager"]
+    if b.get("toWin"):
+        bet["toWin"] = b["toWin"]
+    rules._save_meta(bet)
+    return _present(req, bet)
+
+
+@route("POST", "/api/admin/bets/{betId}/settle", "admin")
+def admin_settle(req):
+    bet = _bundle(req.params["betId"])
+    for pid, result in (req.body.get("results") or {}).items():
+        rules.upsert_leg(bet, pid, {"result": result}, "admin", admin=True)
+    outcome = rules.settle(bet, req.body.get("nextWager") or db.get_settings()["defaultWager"], req.body.get("payout"))
+    players = _players()
+    if bet["kind"] == "bozo":
+        (slack.voting_open if outcome == "vote" else slack.new_bozo)(bet, players)
+    return _present(req, bet)
+
+
+@route("POST", "/api/admin/bets/{betId}/reload", "admin")
+def admin_reload(req):
+    old = _bundle(req.params["betId"])
+    new = rules.reload(old, req.body["playerId"], req.body.get("wager") or db.get_settings()["defaultWager"],
+                       req.body.get("date") or today_ct())
+    slack.new_bozo(old, _players())
+    return _present(req, new)
+
+
+@route("POST", "/api/admin/bets/{betId}/close-vote", "admin")
+def admin_close_vote(req):
+    bet = rules.close_vote(_bundle(req.params["betId"]), req.body.get("choice"))
+    slack.vote_results(bet, _players())
+    return _present(req, bet)
+
+
+@route("POST", "/api/admin/slack-extract", "admin")
+def admin_slack_extract(req):
+    players = db.list_players()
+    out = llm.extract_slack(req.body.get("conversation", ""), [p["name"] for p in players if p.get("active")])
+    by_name = {p["name"].lower(): p["id"] for p in players}
+    aliases = {a.lower(): p["id"] for p in players for a in p.get("slackNames", [])}
+    for leg in out["legs"]:
+        leg["playerId"] = (by_name.get((leg.get("playerName") or "").lower())
+                           or aliases.get((leg.get("person") or "").lower().lstrip("@")))
+    return out
+
+
+@route("GET", "/api/admin/settings", "admin")
+def admin_get_settings(req):
+    return db.get_settings()
+
+
+@route("PUT", "/api/admin/settings", "admin")
+def admin_put_settings(req):
+    s = db.get_settings()
+    for k in db.DEFAULT_SETTINGS:
+        if k in req.body:
+            s[k] = req.body[k]
+    db.put_settings(s)
+    return s
+
+
+@route("GET", "/api/admin/users", "admin")
+def admin_users(req):
+    return {"users": db.list_users(), "players": views.players(db.list_players(), True)}
+
+
+@route("PUT", "/api/admin/users/{sub}", "admin")
+def admin_update_user(req):
+    u = db.get_user(req.params["sub"])
+    if not u:
+        raise ApiError(404, "No such user")
+    role = req.body.get("role", u.get("role"))
+    if role not in ("none", "viewer", "player", "admin"):
+        raise ApiError(400, "Bad role")
+    u["role"] = role
+    u["playerId"] = req.body.get("playerId", u.get("playerId")) if role in ("player", "admin") else None
+    if role == "player" and not u["playerId"]:
+        raise ApiError(400, "Players need a linked bozo")
+    db.put_user({k: v for k, v in u.items() if v is not None})
+    return u
+
+
+@route("PUT", "/api/admin/players/{playerId}", "admin")
+def admin_put_player(req):
+    p = db.get_player(req.params["playerId"]) or {"id": req.params["playerId"],
+                                                   "slot": max([x["slot"] for x in db.list_players()] + [0]) + 1}
+    for k in ("name", "color", "avatar", "active", "pseudonym", "favoriteTeams", "slackNames", "roastLevel"):
+        if k in req.body:
+            p[k] = req.body[k]
+    if not p.get("name"):
+        raise ApiError(400, "Players need a name")
+    db.put_player(p)
+    return views.player(p, True)
+
+
+@route("POST", "/api/admin/pseudonyms/reroll", "admin")
+def admin_reroll(req):
+    from . import pseudo
+    return {"names": pseudo.regenerate(only=req.body.get("playerIds"))}
+
+
+# ---------------- dispatch ----------------
+def handler(event, context):
+    method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
+    path = event.get("rawPath", "/")
+    try:
+        for m, rx, role, fn in ROUTES:
+            match = rx.match(path)
+            if m == method and match:
+                user = auth.resolve(event)
+                auth.require(user, role)
+                return response(200, fn(Req(event, user, match.groupdict())))
+        raise ApiError(404, f"No route {method} {path}")
+    except ApiError as e:
+        return response(e.status, {"error": e.message})
+    except Exception:
+        log.exception("unhandled")
+        return response(500, {"error": "Something broke. Probably the bozo's fault."})
