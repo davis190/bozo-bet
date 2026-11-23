@@ -18,6 +18,7 @@ export const GLOSSARY = {
   lastBozo: { term: "Last bozo", def: "How long since you last had to go to the casino, in bets and in days." },
   timesBozo: { term: "Times bozo", def: "Bets you placed as the bozo. Voted = the group picked you; solo = your leg was the only loser; reload = self-proclaimed after an early loss." },
   bozoCurse: { term: "Bozo curse", def: "Your own leg's record on the weeks you were the bozo. Does carrying the slip jinx you?" },
+  soleAssassins: { term: "Sole Assassins", def: "Every time a parlay died to exactly one leg, with everyone else cashing. The killer is auto-bozo, and the money is what that parlay would have paid." },
   soleAssassin: { term: "Sole assassin", def: "Parlays where yours was the only losing leg: everyone else hit. “Left on the table” adds up what those parlays would have paid." },
   net: { term: "Net $", def: "Your share of winning parlays minus what you've paid in wagers as the bozo." },
   homer: { term: "Homer index", def: "Your record on legs backing your favorite teams (set them in Settings)." },

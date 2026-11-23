@@ -132,6 +132,7 @@ export interface PlayerStats extends RecordOut {
   spent: number; won: number; net: number;
   bozoCurse: RecordOut;
   soleKiller: number;
+  soleKills: { betId: string; date: string; text?: string; odds?: number | null; toWin?: number | null; record?: string }[];
   leftOnTable: number;
   badBeatIndex: number | null;
   streaks: { current: string | null; longestW: number; longestL: number };

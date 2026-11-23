@@ -152,6 +152,7 @@ export default function Stats() {
         <Glossary keys={["record", "winPct", "streak", "luck", "units", "bozos", "net"]} />
       </Section>
 
+      <SoleAssassins rows={data.players} players={players} />
       <Heartbreak data={data} players={players} />
       <SlotSplits data={data} />
       <AboveFiveHundred data={data} players={players} />
@@ -332,6 +333,72 @@ function VoteMatrix({ data, players }: { data: StatsT; players: Record<string, P
           </tbody>
         </table>
       </div>
+    </Section>
+  );
+}
+
+/** Who killed a parlay all by themselves: ranked, with the latest kill and the full rap sheet on tap. */
+function SoleAssassins({ rows, players }: { rows: PlayerStats[]; players: Record<string, Player> }) {
+  const killers = rows.filter((r) => r.soleKiller > 0)
+    .sort((a, b) => b.soleKiller - a.soleKiller || (b.soleKills[0]?.date ?? "").localeCompare(a.soleKills[0]?.date ?? ""));
+  if (!killers.length) return null;
+  const clean = rows.filter((r) => !r.soleKiller && r.w + r.l > 0);
+  const max = killers[0].soleKiller;
+  const total = killers.reduce((t, r) => t + r.leftOnTable, 0);
+  const day = (d: string) => fmtDate(d, { month: "short", day: "numeric", year: "numeric" });
+  return (
+    <Section title="Sole Assassins 🔪" right={<span className="text-xs text-muted">one leg, whole parlay dead</span>}>
+      <div className="card p-4">
+        <div className="text-sm text-ink-2">
+          <b className="text-ink">{fmtMoney(total)}</b> left on the table by lone wolves.
+        </div>
+        <div className="grid gap-4 mt-4">
+          {killers.map((r) => {
+            const last = r.soleKills[0];
+            return (
+              <details key={r.playerId} className="group">
+                <summary className="list-none cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <Avatar p={players[r.playerId]} size={32} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="font-bold truncate">{players[r.playerId]?.displayName}</span>
+                        <span className="font-display text-2xl tabular leading-none">{r.soleKiller}</span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden mt-1.5" aria-hidden>
+                        <div className="h-full rounded-full" style={{ width: `${(r.soleKiller / max) * 100}%`, background: "var(--critical)" }} />
+                      </div>
+                    </div>
+                  </div>
+                  {last && (
+                    <div className="text-xs text-ink-2 mt-1.5 pl-11">
+                      Last: <b>{day(last.date)}</b> · {last.text} {last.odds != null && <span className="font-mono">{fmtOdds(last.odds)}</span>}
+                      {last.toWin ? <> · cost {fmtMoney(last.toWin)}</> : null}
+                      <span className="text-muted"> · {fmtMoney(r.leftOnTable)} total{r.soleKiller > 1 && <span className="group-open:hidden"> · tap for all</span>}</span>
+                    </div>
+                  )}
+                </summary>
+                {r.soleKiller > 1 && (
+                  <div className="pl-11 mt-2 grid gap-1">
+                    {r.soleKills.map((k) => (
+                      <Link key={k.betId} to={`/bets/${k.betId}`} className="text-xs flex justify-between gap-2 py-1 border-t border-[var(--border)]">
+                        <span className="min-w-0 truncate"><span className="text-muted">{day(k.date)}</span> · {k.text}</span>
+                        <span className="tabular whitespace-nowrap text-ink-2">{k.toWin ? fmtMoney(k.toWin) : ""}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </details>
+            );
+          })}
+        </div>
+        {!!clean.length && (
+          <div className="text-xs text-muted mt-4 pt-3 border-t border-[var(--border)]">
+            😇 Clean hands: {clean.map((r) => players[r.playerId]?.displayName).join(", ")}
+          </div>
+        )}
+      </div>
+      <Glossary keys={["soleAssassins"]} title="What counts?" />
     </Section>
   );
 }

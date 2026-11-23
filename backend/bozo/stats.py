@@ -114,7 +114,7 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
     per = {pid: {
         "rec": Rec(), "splits": defaultdict(lambda: defaultdict(Rec)), "results": [], "odds": [], "winOdds": [],
         "bozo": 0, "voted": 0, "auto": 0, "reload": 0, "spent": 0.0, "won": 0.0,
-        "curse": Rec(), "soleKiller": 0, "leftOnTable": 0.0, "lostMargin": [], "teams": Counter(),
+        "curse": Rec(), "soleKiller": 0, "soleKills": [], "leftOnTable": 0.0, "lostMargin": [], "teams": Counter(),
         "homer": Rec(), "against": Rec(), "crowd": Counter(),
     } for pid in pids}
     favs = {p["id"]: {t["team"] for t in (p.get("favoriteTeams") or []) if t.get("team")} for p in players}
@@ -158,6 +158,9 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
         if b.get("outcome") == "single" and losers and losers[0] in per:
             per[losers[0]]["soleKiller"] += 1
             per[losers[0]]["leftOnTable"] += float(b.get("toWin") or 0)
+            killer = next((l for l in legs if l["playerId"] == losers[0]), {})
+            per[losers[0]]["soleKills"].append({"betId": b["id"], "date": b["date"], "text": killer.get("text"),
+                                                "odds": killer.get("odds"), "toWin": b.get("toWin"), "record": b.get("record")})
 
         for leg in legs:
             pid = leg["playerId"]
@@ -226,6 +229,7 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
             "spent": round(s["spent"], 2), "won": round(s["won"], 2), "net": round(s["won"] - s["spent"], 2),
             "bozoCurse": s["curse"].out(),
             "soleKiller": s["soleKiller"], "leftOnTable": round(s["leftOnTable"], 2),
+            "soleKills": s["soleKills"][::-1],  # newest first
             "badBeatIndex": round(sum(s["lostMargin"]) / len(s["lostMargin"]), 2) if s["lostMargin"] else None,
             "streaks": _streaks(s["results"]),
             "recent": s["results"][-20:],
