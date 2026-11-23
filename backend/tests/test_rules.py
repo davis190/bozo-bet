@@ -198,3 +198,16 @@ def test_tracker_normalize_ou_on_moneyline_becomes_total():
     out = normalize({"found": True, "eventId": "1", "kind": "spread", "team": "LAR", "line": 40.5}, "O40.5 Texans Rams (alt)")
     assert out["kind"] == "game_total" and out["direction"] == "over"
     assert normalize({"found": True, "kind": "moneyline"}, "Packers ML")["found"] is False  # no game chosen
+
+
+def test_closing_opens_the_next_bet(fake):
+    bet = _bet_with([("p1", "a", 100), ("p2", "b", 100), ("p3", "c", 100)])
+    for pid, r in (("p1", "L"), ("p2", "L"), ("p3", "W")):
+        rules.upsert_leg(bet, pid, {"result": r}, "admin", admin=True)
+    rules.settle(bet, 15)
+    assert rules.current_bet(fake.list_bets())["id"] == bet["id"]  # still voting, nothing new yet
+    for v, c in (("p1", "p2"), ("p2", "p2"), ("p3", "p1")):
+        rules.cast_vote(bet, v, c)
+    nxt = rules.current_bet(fake.list_bets())
+    assert nxt["id"] == bet["nextBetId"] and nxt["status"] == "OPEN"
+    assert nxt["bozoId"] == "p2" and nxt["wager"] == 15

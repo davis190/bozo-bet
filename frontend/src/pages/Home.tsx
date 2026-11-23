@@ -107,7 +107,7 @@ export default function Home() {
         </Section>
       )}
 
-      {data?.lastBet && !bet && <LastResult bet={data.lastBet} />}
+      {data?.lastBet && (!bet || bet.status === "OPEN") && <LastResult bet={data.lastBet} />}
 
       {!!data?.sideBets.length && (
         <Section title="Side Action">

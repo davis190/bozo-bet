@@ -4,7 +4,8 @@ Bet lifecycle (bozo bets):
   OPEN     collecting legs
   LOCKED   slip uploaded; legs frozen, live tracking runs
   VOTING   2+ losers; everyone with a leg votes for a loser
-  CLOSED   nextBozoId decided (hit -> same bozo again, 1 loser -> auto, reload -> reloader, else vote)
+  CLOSED   nextBozoId decided (hit -> same bozo again, 1 loser -> auto, reload -> reloader, else vote);
+           the next OPEN bet is created right away with that bozo and the carried-over wager
 
 Side bets skip VOTING: OPEN -> LOCKED -> CLOSED.
 """
@@ -12,7 +13,7 @@ from collections import Counter
 from datetime import date
 
 from . import db, odds
-from .util import ApiError, now_iso
+from .util import ApiError, now_iso, today_ct
 
 RESULTS = {"W", "L", "P"}
 
@@ -152,6 +153,7 @@ def settle(bet, next_wager, payout=None):
         raise ApiError(409, "Every leg needs a W/L/P before settling")
     losers = [l["playerId"] for l in legs if l["result"] == "L"]
     bet["settledAt"] = now_iso()
+    bet["nextWager"] = next_wager
     bet["record"] = f"{sum(l['result'] == 'W' for l in legs)}-{len(losers)}-{sum(l['result'] == 'P' for l in legs)}"
 
     if not losers:
@@ -161,7 +163,6 @@ def settle(bet, next_wager, payout=None):
             d = odds.parlay_decimal([l.get("odds") for l in legs if l["result"] != "P"])
             payout = round(bet["wager"] * d, 2) if d else bet.get("toWin")
         bet["payout"] = payout
-        bet["nextWager"] = next_wager
         bet["perPerson"] = round(odds.split_winnings(payout, next_wager, len(legs)), 2)
     else:
         bet["result"] = "L"
@@ -177,7 +178,21 @@ def settle(bet, next_wager, payout=None):
         bet.update(outcome="vote", candidates=losers, status="VOTING", voteOpenedAt=now_iso())
     _touch(bet)
     _save_meta(bet)
+    open_next(bet)
     return bet["outcome"]
+
+
+def open_next(bet):
+    """A bozo bet just closed -> open the books for the next one so legs can roll in without the admin."""
+    if bet["kind"] != "bozo" or bet["status"] != "CLOSED" or bet.get("nextBetId"):
+        return None
+    existing = db.list_bets()
+    if current_bet(existing):
+        return None
+    new = create_bet("bozo", today_ct(), bet.get("nextWager") or bet.get("wager"), bozo_id=bet.get("nextBozoId"), existing=existing)
+    bet["nextBetId"] = new["id"]
+    _save_meta(bet)
+    return new
 
 
 def reload(bet, player_id, wager, date):
@@ -265,4 +280,5 @@ def close_vote(bet, choice, auto=False):
     bet.pop("tie", None)
     _touch(bet)
     _save_meta(bet)
+    open_next(bet)
     return bet
