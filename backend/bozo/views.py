@@ -7,7 +7,7 @@ from . import bets as rules
 from . import reactions
 
 PUBLIC_PLAYER_FIELDS = ("id", "slot", "color", "avatar", "pseudonym", "active")
-PRIVATE_PLAYER_FIELDS = ("name", "favoriteTeams", "roastLevel", "taunt")
+PRIVATE_PLAYER_FIELDS = ("name", "favoriteTeams", "roastLevel", "taunt", "scouting")
 
 _s3 = None
 

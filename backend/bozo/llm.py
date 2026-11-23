@@ -29,6 +29,8 @@ DEFAULT_MODELS = {
     "track": HAIKU,                      # tracker agent: leg -> game/stat spec (tool loop over ESPN)
     "commentary": SONNET,                # ballot color commentary; Haiku flipped over/under and invented game flow
     "commentary_fallback": HAIKU,        # in spot checks. Once a vote, so ~1-2c.
+    "scout": SONNET,                     # player scouting reports; picks splits by id, so the numbers stay ours
+    "scout_fallback": HAIKU,
     "writer": SONNET,                    # recaps / scouting reports (not yet evaluated)
 }
 MODELS = {**DEFAULT_MODELS, **json.loads(os.environ.get("LLM_MODELS") or "{}")}

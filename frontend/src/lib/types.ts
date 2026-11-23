@@ -15,6 +15,28 @@ export interface Player {
   roastLevel?: "mild" | "spicy" | "no mercy";
   taunt?: string;
   slackNames?: string[];
+  scouting?: Scouting;
+}
+
+export interface ScoutPick {
+  id: string;
+  label: string;
+  why: string;
+  recent: RecordOut;
+  allTime: RecordOut;
+}
+
+/** Sarcastic "what to bet next", rebuilt after every settled bet from the last 20 legs. */
+export interface Scouting {
+  headline: string;
+  take: string;
+  confidence: "lock it in" | "lean" | "coin flip" | "pray";
+  nothingTrending: boolean;
+  ride?: ScoutPick;
+  fade?: ScoutPick;
+  window: RecordOut & { n: number };
+  generatedAt: string;
+  throughBet?: string;
 }
 
 export interface Leg {

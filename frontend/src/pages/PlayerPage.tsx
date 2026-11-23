@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ScoutingCard } from "../components/ScoutingCard";
 import { useApi } from "../lib/api";
 import { fmtDate, fmtMoney, fmtOdds, fmtPct, fmtSigned, record } from "../lib/format";
 import { useSession } from "../lib/session";
@@ -41,6 +42,7 @@ export default function PlayerPage() {
           {s?.streaks.current && <div className="text-xs mt-1 font-bold" style={{ color: s.streaks.current.startsWith("W") ? "var(--good)" : "var(--critical)" }}>{s.streaks.current.startsWith("W") ? "🔥" : "🧊"} {s.streaks.current} streak</div>}
         </div>
       </div>
+      {p?.scouting && <ScoutingCard s={p.scouting} mine={id === me?.id} />}
       <div className="mt-3"><RangePicker range={range} setRange={setRange} /></div>
       {!s ? (
         <div className="card p-6 mt-4 text-center text-ink-2">No bets in this range. Suspicious.</div>

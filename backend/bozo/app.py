@@ -7,7 +7,7 @@ import re
 
 import boto3
 
-from . import auth, commentary, db, llm, reactions, slack, stats, views
+from . import auth, commentary, db, llm, reactions, scouting, slack, stats, views
 from . import bets as rules
 from .util import ApiError, new_id, now_iso, response, today_ct
 
@@ -282,6 +282,7 @@ def admin_settle(req):
     for pid, result in (req.body.get("results") or {}).items():
         rules.upsert_leg(bet, pid, {"result": result}, "admin", admin=True)
     outcome = rules.settle(bet, req.body.get("nextWager") or db.get_settings()["defaultWager"], req.body.get("payout"))
+    scouting.kick(f"bet {bet['id']} settled")
     players = _players()
     if outcome == "vote":
         commentary.attach(bet, players)
@@ -317,6 +318,12 @@ def admin_emoji(req):
     s["emojiKinds"] = {**(s.get("emojiKinds") or {}), name: kind}
     db.put_settings(s)
     return {"ok": True}
+
+
+@route("POST", "/api/admin/scouting", "admin")
+def admin_scouting(req):
+    scouting.kick("manual")
+    return {"started": True}
 
 
 @route("POST", "/api/admin/slack-test", "admin")

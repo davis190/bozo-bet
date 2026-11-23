@@ -20,7 +20,7 @@ from datetime import timedelta, timezone
 import boto3
 
 from . import bets as rules
-from . import commentary, db, enrich, games, llm, slack
+from . import commentary, db, enrich, games, llm, scouting, slack
 from .util import TZ, ApiError, now_iso
 
 log = logging.getLogger()
@@ -434,6 +434,7 @@ def run(bet_id, reason="scheduled"):
     outcome = None
     if bet["status"] == "LOCKED" and all(l.get("result") in rules.RESULTS for l in rules.counted_legs(bet)):
         outcome = rules.settle(bet, settings["defaultWager"])
+        scouting.kick(f"bet {bet['id']} settled")
         if outcome == "vote":
             commentary.attach(bet, players)
         if bet["kind"] == "bozo":

@@ -3,12 +3,14 @@ import { ApiError, post, put } from "../lib/api";
 import { fmtPct } from "../lib/format";
 import type { Bet, Leg, ParsedLeg } from "../lib/types";
 import { Sheet } from "../components/ui";
+import { useSession } from "../lib/session";
 
 interface ParseResp { leg: ParsedLeg; history: { label: string; w: number; l: number; pct: number }[]; floorWarning?: string | null }
 
 const NUDGES = ["Proceed, bozo?", "You sure about this?", "The casino thanks you in advance.", "Bold. Stupid, but bold."];
 
 export function SubmitLeg({ open, onClose, bet, existing, onSaved }: { open: boolean; onClose: () => void; bet: Bet; existing?: Leg; onSaved: () => void }) {
+  const { me } = useSession();
   const [raw, setRaw] = useState("");
   const [parsed, setParsed] = useState<ParseResp | null>(null);
   const [text, setText] = useState("");
@@ -64,6 +66,13 @@ export function SubmitLeg({ open, onClose, bet, existing, onSaved }: { open: boo
     <Sheet open={open} onClose={onClose} title={existing ? "Change your leg" : "Your leg"}>
       {!confirming ? (
         <>
+          {me?.scouting && (me.scouting.ride || me.scouting.fade) && (
+            <div className="card p-3 mb-3 text-sm bg-surface-2">
+              <div className="font-bold">🧠 Your scout says</div>
+              {me.scouting.ride && <div className="mt-0.5"><span style={{ color: "var(--good)" }}>{me.scouting.nothingTrending ? "Least-bad:" : "Ride:"}</span> {me.scouting.ride.label} <span className="text-muted font-mono text-xs">({me.scouting.ride.recent.w}-{me.scouting.ride.recent.l} lately)</span></div>}
+              {me.scouting.fade && <div><span style={{ color: "var(--critical)" }}>Fade:</span> {me.scouting.fade.label} <span className="text-muted font-mono text-xs">({me.scouting.fade.recent.w}-{me.scouting.fade.recent.l} lately)</span></div>}
+            </div>
+          )}
           <label className="text-sm text-ink-2" htmlFor="leg-raw">Type it like you'd text it.</label>
           <textarea id="leg-raw" className="input mt-2 min-h-28" placeholder="josh allen over 1.5 td passes -175" value={raw} onChange={(e) => setRaw(e.target.value)} autoFocus />
           <button className="btn btn-primary w-full mt-3" disabled={!raw.trim() || busy} onClick={parse}>{busy ? "Reading your chicken scratch…" : "Next"}</button>

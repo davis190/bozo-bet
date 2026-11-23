@@ -586,6 +586,10 @@ function Settings() {
       <Section title="Pseudonyms">
         <button className="btn btn-ghost w-full" onClick={() => run(() => post("/admin/pseudonyms/reroll"), "New fake names generated 🎭")}>🎲 Reroll everyone's fake name</button>
       </Section>
+      <Section title="Scouting reports">
+        <p className="text-xs text-muted mb-2 px-1">Rebuilt automatically after every settled bet. Takes about a minute; #ops gets the headlines.</p>
+        <button className="btn btn-ghost w-full" onClick={() => run(() => post("/admin/scouting"), "Scouts dispatched 🧠")}>🧠 Refresh scouting reports now</button>
+      </Section>
     </div>
   );
 }

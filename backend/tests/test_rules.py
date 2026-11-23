@@ -303,3 +303,17 @@ def test_reactions_signature_and_summary(monkeypatch):
     s = reactions.summarize({"fire": ["U1", "U2"], "skull": ["U3"], "partyparrot": ["U1"]}, {**reactions.DEFAULT_KINDS, "eyes": "neutral"})
     assert (s["up"], s["down"], s["neutral"], s["unknown"]) == (2, 1, 0, 1)
     assert s["emojis"][0] == ["fire", 2, "up"]
+
+
+def test_scouting_uses_our_numbers_and_rejects_made_up_picks(monkeypatch):
+    from bozo import llm, scouting
+    legs = [{"playerId": "p1", "date": f"2026-10-{i:02d}", "text": f"leg {i}", "odds": -110, "result": r,
+             "parsed": {"market": "Over" if i % 2 else "Spread"}} for i, r in enumerate("WWWLWLLLWLLL", start=1)]
+    monkeypatch.setattr(llm, "structured", lambda *a, **k: {
+        "headline": "h", "take": "t", "confidence": "lean", "nothingTrending": False,
+        "ride": {"id": "market:Over", "why": "you're 99-0 on overs"},  # model's numbers are ignored; ours are attached
+        "fade": {"id": "market:Parlays", "why": "made up"}})          # not a real split -> dropped
+    r = scouting.build({"id": "p1"}, legs)
+    assert r["ride"]["label"] == "Overs" and (r["ride"]["recent"]["w"], r["ride"]["recent"]["l"]) == (4, 2)
+    assert "fade" not in r
+    assert scouting.build({"id": "p1"}, legs[:4]) is None  # not enough history
