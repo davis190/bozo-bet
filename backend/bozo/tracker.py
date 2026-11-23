@@ -9,6 +9,7 @@ Each run:
                 10 min when a leg is sweating late, next kickoff when nothing is live, nothing when done
 Every run is summarized to the Slack logs channel.
 """
+import difflib
 import json
 import logging
 import os
@@ -19,7 +20,7 @@ from datetime import timedelta, timezone
 import boto3
 
 from . import bets as rules
-from . import db, games, llm, slack
+from . import db, enrich, games, llm, slack
 from .util import TZ, ApiError, now_iso
 
 log = logging.getLogger()
@@ -37,7 +38,8 @@ SPEC_SCHEMA = {
         "team": {"type": "string", "description": "Abbreviation of the team picked (moneyline/spread/team_total) as shown by find_games"},
         "player": {"type": "string", "description": "Athlete's full name as it appears in the box score"},
         "stats": {"type": "array", "items": {"type": "string"},
-                  "description": "player_stat only: stat keys summed together, e.g. ['passing.TD'] or ['rushing.TD','receiving.TD'] for anytime TD"},
+                  "description": "player_stat only: stat keys summed together, e.g. ['passing.TD'] or ['rushing.TD','receiving.TD'] for anytime TD. "
+                                 "A quarterback's 'O 1.5 TDs' is ['passing.TD'] only, unless rushing is mentioned."},
         "statLabel": {"type": "string", "description": "short human label, e.g. 'pass TDs', 'rec yds', 'pts+reb'"},
         "line": {"type": "number", "description": "Spread from the picked team's view (e.g. -16), or the total/prop line. '2+ TDs' = 1.5, 'anytime TD' = 0.5. Moneyline: 0"},
         "direction": {"type": "string", "enum": ["over", "under"], "description": "totals and props only"},
@@ -56,6 +58,10 @@ TOOLS = [
                   "inputSchema": {"json": {"type": "object", "properties": {
                       "league": {"type": "string"}, "event_id": {"type": "string"}, "name": {"type": "string"}},
                       "required": ["league", "event_id"]}}}},
+    {"toolSpec": {"name": "find_player", "description": "Search every box score for a sport between two dates for a player name. Fuzzy: handles typos, nicknames-by-surname and first-name-only. Use this whenever a player is involved.",
+                  "inputSchema": {"json": {"type": "object", "properties": {
+                      "sport": {"type": "string", "enum": list(games.LEAGUES)}, "date_from": {"type": "string"},
+                      "date_to": {"type": "string"}, "name": {"type": "string"}}, "required": ["sport", "date_from", "date_to", "name"]}}}},
     {"toolSpec": {"name": "respond", "description": "Final answer: the leg's tracking spec.", "inputSchema": {"json": SPEC_SCHEMA}}},
 ]
 
@@ -66,7 +72,7 @@ Group conventions: 'O'/'U' = over/under, 'ML' = moneyline, 'ATD' = anytime touch
 For a quarterback, 'TD'/'TDs' means passing TDs unless it says rush/rushing or ATD.
 Two teams separated by '/', 'vs' or '-' with O/U means the game total.
 Stat keys by sport: {keys}
-Call find_games first, then box_score if a player is involved (to confirm the spelling and team). Then call respond.
+For player bets call find_player (names are often misspelled, nicknamed, or first-name-only). For team bets call find_games.\nUse the exact box-score spelling in your answer. Then call respond.
 If you truly can't find the game, respond with found=false and say why."""
 
 
@@ -78,6 +84,21 @@ def _tool(name, args, cache):
         gs = games.find_games(args["sport"], lo, hi, args.get("team"))
         return [{"league": g["league"], "eventId": g["id"], "name": g["name"], "start": g["start"], "state": g["state"],
                  "teams": [f"{t['abbr']} ({t['name']}){' home' if t['home'] else ''}" for t in g["teams"]]} for g in gs[:40]]
+    if name == "find_player":
+        lo, hi = games.as_date(args["date_from"]), games.as_date(args["date_to"])
+        if (hi - lo).days > 6:
+            return {"error": "date range too wide for a player search (max 6 days)"}
+        hits = []
+        for g in games.find_games(args["sport"], lo, hi):
+            if g["state"] == "pre":
+                continue
+            s = games.summary(g["league"], g["id"], cache)
+            for n, p in s["players"].items():
+                score = _name_score(args["name"], n)
+                if score >= 0.6:
+                    hits.append({"score": round(score, 2), "player": n, "team": p["_team"], "league": g["league"], "eventId": g["id"],
+                                 "game": g["name"], "stats": {k: v for k, v in p.items() if not k.startswith("_")}})
+        return sorted(hits, key=lambda h: -h["score"])[:8] or "no players found"
     if name == "box_score":
         s = games.summary(args["league"], args["event_id"], cache)
         q = _norm(args.get("name") or "")
@@ -93,7 +114,7 @@ def resolve(leg, bet_date, cache=None, model=None):
     msg = f"Bet: {leg['text']}" + (f"\nLikely sport: {sport}" if sport else "")
     system = RESOLVER_PROMPT.format(date=bet_date, keys=json.dumps(games.STAT_KEYS))
     messages = [{"role": "user", "content": [{"text": msg}]}]
-    for _ in range(8):
+    for _ in range(10):
         resp = llm._converse(modelId=model or llm.MODELS["track"], system=[{"text": system}], messages=messages,
                              inferenceConfig={"maxTokens": 1500}, toolConfig={"tools": TOOLS})
         out = resp["output"]["message"]
@@ -123,6 +144,20 @@ def _norm(name):
     s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
     s = re.sub(r"\b(jr|sr|ii|iii|iv)\b\.?", "", s)
     return re.sub(r"[^a-z ]", "", s).strip()
+
+
+def _name_score(query, full):
+    """Fuzzy match a typed name ('Shroud', 'Baker', 'KW3', 'J-Love') against a box-score name."""
+    q, n = _norm(query), _norm(full)
+    if not q:
+        return 0
+    if q == n:
+        return 1.0
+    parts = n.split()
+    best = max(difflib.SequenceMatcher(None, q, x).ratio() for x in parts + [n])
+    if any(x == q for x in parts):  # exact first or last name
+        best = max(best, 0.9)
+    return best
 
 
 def _find_player(players, name):
@@ -238,7 +273,10 @@ def run(bet_id, reason="scheduled"):
             lines.append(f"❓ {name}: {leg['text']} — can't find it ({spec.get('reason', '')[:80]})")
             continue
         try:
-            live = evaluate(spec, games.summary(spec["league"], spec["eventId"], cache))
+            summ = games.summary(spec["league"], spec["eventId"], cache)
+            live = evaluate(spec, summ)
+            if live["state"] == "post":
+                leg["enrichment"] = enrich.derive({"sport": (leg.get("parsed") or {}).get("sport"), **spec}, summ, live)
         except Exception as e:
             log.exception("evaluate failed")
             live = {"status": "IN_DOUBT", "detail": f"Data hiccup: {str(e)[:80]}", "updatedAt": now_iso()}

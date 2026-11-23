@@ -120,6 +120,8 @@ export default function Stats() {
         <p className="text-xs text-muted mt-2 px-1"><b>Luck</b> = actual wins minus wins the odds predicted. <b>Units</b> = profit if each leg were a $1 straight bet — the real skill test.</p>
       </Section>
 
+      <Heartbreak data={data} players={players} />
+      <SlotSplits data={data} />
       <AboveFiveHundred data={data} players={players} />
       <WallOfShame data={data} players={players} />
       <VoteMatrix data={data} players={players} />
@@ -281,6 +283,49 @@ function VoteMatrix({ data, players }: { data: StatsT; players: Record<string, P
             ))}
           </tbody>
         </table>
+      </div>
+    </Section>
+  );
+}
+
+function Heartbreak({ data, players }: { data: StatsT; players: Record<string, Player> }) {
+  const hb = data.group.heartbreaks ?? [];
+  if (!hb.length) return null;
+  return (
+    <Section title="Hall of Heartbreak" right={<span className="text-xs text-muted">closest losses ever</span>}>
+      <div className="card divide-y divide-[var(--border)]">
+        {hb.slice(0, 8).map((h, i) => (
+          <Link key={`${h.betId}-${h.playerId}`} to={`/bets/${h.betId}`} className="flex items-center gap-3 p-3">
+            <div className="w-6 text-center font-display text-muted">{i + 1}</div>
+            <Avatar p={players[h.playerId]} size={30} />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold truncate">{h.text}</div>
+              <div className="text-xs text-muted">{players[h.playerId]?.displayName} · {fmtDate(h.date, { month: "short", day: "numeric", year: "numeric" })}</div>
+            </div>
+            <div className="text-sm font-bold tabular whitespace-nowrap" style={{ color: "var(--serious)" }}>{h.margin === 0 ? "by a hair" : `by ${Math.abs(h.margin)}`} 💔</div>
+          </Link>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function SlotSplits({ data }: { data: StatsT }) {
+  const rows = Object.entries(data.group.bySlot ?? {}).filter(([, r]) => r.w + r.l >= 5);
+  if (!rows.length) return null;
+  return (
+    <Section title="When We Bet" right={<span className="text-xs text-muted">group record by time slot</span>}>
+      <div className="card divide-y divide-[var(--border)]">
+        {rows.map(([slot, r]) => (
+          <div key={slot} className="p-3 flex items-center gap-3 text-sm">
+            <div className="flex-1 min-w-0 font-semibold truncate">{slot}</div>
+            <div className="w-20 h-2 rounded-full bg-surface-2 overflow-hidden shrink-0" aria-hidden>
+              <div className="h-full rounded-full" style={{ width: `${(r.pct ?? 0) * 100}%`, background: (r.pct ?? 0) >= 0.5 ? "var(--good)" : "var(--critical)" }} />
+            </div>
+            <div className="w-20 text-right font-mono tabular whitespace-nowrap">{record(r)}</div>
+            <div className="w-12 text-right tabular text-ink-2">{fmtPct(r.pct)}</div>
+          </div>
+        ))}
       </div>
     </Section>
   );

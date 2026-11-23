@@ -60,6 +60,9 @@ export default function PlayerPage() {
             <Stat label="Bozo curse" value={record(s.bozoCurse)} sub="own leg while being the bozo" />
             <Stat label="Sole assassin" value={s.soleKiller} sub={`${fmtMoney(s.leftOnTable)} left on the table`} />
             <Stat label="Net $" value={fmtMoney(s.net)} sub={`${fmtMoney(s.spent)} spent · ${fmtMoney(s.won)} won`} />
+            {s.homer.w + s.homer.l > 0 && <Stat label="Homer index" value={record(s.homer)} sub={`${fmtPct(s.homer.pct)} betting on ${p?.favoriteTeams?.map((t) => t.team).join("/") || "your teams"}`} />}
+            {s.againstTeam.w + s.againstTeam.l > 0 && <Stat label="Traitor index" value={record(s.againstTeam)} sub="betting against your own team" />}
+            {s.badBeatIndex != null && <Stat label="Bad beat index" value={s.badBeatIndex} sub="avg miss on losing legs" />}
           </div>
 
           {Object.entries(s.splits).map(([key, vals]) => (

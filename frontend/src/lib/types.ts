@@ -111,6 +111,8 @@ export interface PlayerStats extends RecordOut {
   recent: Result[];
   splits: Record<string, Record<string, RecordOut>>;
   topTeams: [string, number][];
+  homer: RecordOut;
+  againstTeam: RecordOut;
 }
 
 export interface Stats {
@@ -119,6 +121,8 @@ export interface Stats {
     nearMisses: number; spent: number; paidOut: number;
     biggestPayout: { betId: string; date: string; payout: number } | null;
     legs: RecordOut;
+    bySlot: Record<string, RecordOut>;
+    heartbreaks: { betId: string; date: string; playerId: string; text: string; margin: number; game?: string }[];
   };
   players: PlayerStats[];
   votes: Record<string, Record<string, number>>;

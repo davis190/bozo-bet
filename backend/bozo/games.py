@@ -100,7 +100,15 @@ def summary(league, event_id, cache=None):
                 p = players.setdefault(name, {"_team": abbr})
                 for label, val in zip(labels, a.get("stats", [])):
                     p[f"{prefix}.{label}"] = _num(val)
+    pick = (data.get("pickcenter") or [{}])[0]
+    home = next((t["abbr"] for t in teams if t["home"]), None)
+    away = next((t["abbr"] for t in teams if not t["home"]), None)
+    favorite = home if (pick.get("homeTeamOdds") or {}).get("favorite") else away if (pick.get("awayTeamOdds") or {}).get("favorite") else None
+    venue = (data.get("gameInfo") or {}).get("venue") or {}
     out = {"league": league, "id": event_id, "teams": teams, "players": players, "start": comp.get("date"),
+           "week": data["header"].get("week"), "seasonType": (data["header"].get("season") or {}).get("type"),
+           "neutral": comp.get("neutralSite"), "indoor": venue.get("indoor"), "venue": venue.get("fullName"),
+           "favorite": favorite, "marketSpread": pick.get("spread"), "marketTotal": pick.get("overUnder"),
            **_status(comp.get("status") or {})}
     if cache is not None:
         cache[key] = out

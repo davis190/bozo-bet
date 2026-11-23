@@ -8,6 +8,7 @@ import logging
 import os
 
 import boto3
+from botocore.config import Config
 
 from .util import ApiError, today_ct
 
@@ -36,7 +37,8 @@ usage_hook = None  # evals set this to collect (model, usage, latencyMs) per cal
 
 def client():
     global _client
-    _client = _client or boto3.client("bedrock-runtime")
+    # New accounts have low Bedrock quotas; back off and retry instead of failing the request
+    _client = _client or boto3.client("bedrock-runtime", config=Config(retries={"max_attempts": 8, "mode": "adaptive"}, read_timeout=120))
     return _client
 
 
