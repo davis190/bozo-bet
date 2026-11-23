@@ -79,7 +79,15 @@ export interface Current {
   lastBet: Bet | null;
   sideBets: Bet[];
   players: Player[];
+  droughts: Record<string, Drought>;
   settings: { defaultWager: number };
+}
+
+export interface Drought {
+  lastDate: string;
+  betsSince: number;
+  daysSince: number;
+  how?: "voted" | "auto" | "reload" | "stays";
 }
 
 export interface User {

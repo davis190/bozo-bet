@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApi } from "../lib/api";
-import { fmtMoney, fmtOdds, fmtPct, fmtSigned, record } from "../lib/format";
+import { fmtDate, fmtMoney, fmtOdds, fmtPct, fmtSigned, record } from "../lib/format";
 import { useSession } from "../lib/session";
-import type { Player, RecordOut, Stats } from "../lib/types";
+import type { Drought, Player, RecordOut, Stats } from "../lib/types";
 import { Avatar, ErrorBox, Section, Spinner, Stat } from "../components/ui";
 import { RangePicker, useRange } from "./Stats";
 
@@ -18,7 +18,7 @@ export default function PlayerPage() {
   const { id = "" } = useParams();
   const { players, setPlayers } = useSession();
   const { range, setRange, qs } = useRange();
-  const cur = useApi<{ players: Player[] }>("/current");
+  const cur = useApi<{ players: Player[]; droughts: Record<string, Drought>; currentBozoId?: string }>("/current");
   const { data, error, loading } = useApi<Stats>(`/stats?${qs}`);
   useEffect(() => { if (cur.data) setPlayers(cur.data.players); }, [cur.data, setPlayers]);
 
@@ -56,6 +56,7 @@ export default function PlayerPage() {
             <Stat label="Luck" value={fmtSigned(s.luck)} sub="wins vs. what the odds predicted" />
             <Stat label="Flat-bet units" value={fmtSigned(s.units)} sub="$1 on every leg, straight up" />
             <Stat label="Avg odds" value={fmtOdds(s.avgOdds)} sub={`avg winner ${fmtOdds(s.avgWinOdds)} · best ${fmtOdds(s.bestWin)}`} />
+            <LastBozo d={cur.data?.droughts?.[id]} now={cur.data?.currentBozoId === id} />
             <Stat label="Times bozo" value={s.bozoCount} sub={`${s.votedBozo} voted · ${s.autoBozo} solo · ${s.reloadBozo} reload`} />
             <Stat label="Bozo curse" value={record(s.bozoCurse)} sub="own leg while being the bozo" />
             <Stat label="Sole assassin" value={s.soleKiller} sub={`${fmtMoney(s.leftOnTable)} left on the table`} />
@@ -96,4 +97,11 @@ function Splits({ title, vals }: { title: string; vals: Record<string, RecordOut
       </div>
     </Section>
   );
+}
+
+function LastBozo({ d, now }: { d?: Drought; now: boolean }) {
+  if (now) return <Stat label="Last bozo" value="Right now 👑" sub="enjoy the casino" />;
+  if (!d) return <Stat label="Last bozo" value="Never 😇" sub="suspiciously clean" />;
+  const how = { voted: "voted in", auto: "only loser", reload: "reload", stays: "hit, went again" }[d.how ?? "voted"];
+  return <Stat label="Last bozo" value={`${d.betsSince} bet${d.betsSince === 1 ? "" : "s"} ago`} sub={`${fmtDate(d.lastDate, { month: "short", day: "numeric", year: "numeric" })} · ${how}`} />;
 }

@@ -178,3 +178,16 @@ def test_tracker_counts_touchdowns_not_points():
     g = {**_game("post", {"HOU": 23, "DET": 26}), "scoring": {"HOU": {"TD": 2, "FG": 3}, "DET": {"TD": 3, "FG": 1}}}
     assert evaluate({"kind": "team_stat", "team": "HOU", "stat": "TD", "line": 2.5, "direction": "over"}, g)["result"] == "L"
     assert evaluate({"kind": "game_stat", "stat": "FG", "line": 3.5, "direction": "over"}, g)["result"] == "W"
+
+
+def test_bozo_droughts():
+    bets = [
+        {"kind": "bozo", "status": "CLOSED", "date": "2026-10-01", "nextBozoId": "p1", "nextBozoMethod": "voted"},
+        {"kind": "bozo", "status": "CLOSED", "date": "2026-10-08", "nextBozoId": "p2", "nextBozoMethod": "auto"},
+        {"kind": "bozo", "status": "CLOSED", "date": "2026-10-15", "nextBozoId": "p2", "nextBozoMethod": "voted"},
+        {"kind": "side", "status": "CLOSED", "date": "2026-10-16"},
+        {"kind": "bozo", "status": "LOCKED", "date": "2026-10-22"},
+    ]
+    d = rules.bozo_droughts(bets, "2026-10-22")
+    assert d["p1"] == {"lastDate": "2026-10-01", "betsSince": 2, "daysSince": 21, "how": "voted"}
+    assert d["p2"]["betsSince"] == 0 and "p3" not in d

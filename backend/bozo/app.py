@@ -65,6 +65,7 @@ def current(req):
         "lastBet": _present(req, _bundle(last["id"])) if last else None,
         "sideBets": [_present(req, _bundle(b["id"])) for b in open_side],
         "players": views.players(db.list_players(), req.names),
+        "droughts": rules.bozo_droughts(all_bets, today_ct()),
         "settings": {"defaultWager": db.get_settings()["defaultWager"]},
     }
 

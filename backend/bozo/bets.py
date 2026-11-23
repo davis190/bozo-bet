@@ -9,6 +9,7 @@ Bet lifecycle (bozo bets):
 Side bets skip VOTING: OPEN -> LOCKED -> CLOSED.
 """
 from collections import Counter
+from datetime import date
 
 from . import db, odds
 from .util import ApiError, now_iso
@@ -35,6 +36,19 @@ def current_bozo_id(bets):
         if b.get("kind") == "bozo" and b.get("status") == "CLOSED" and b.get("nextBozoId"):
             return b["nextBozoId"]
     return None
+
+
+def bozo_droughts(bets, today):
+    """{playerId: {lastDate, betsSince, daysSince}} - how long since each player last became the bozo.
+    betsSince counts closed bozo bets after the one that crowned them (reload bets included)."""
+    closed = [b for b in bets if b.get("kind") == "bozo" and b.get("status") == "CLOSED"]
+    out = {}
+    for i, b in enumerate(closed):
+        if b.get("nextBozoId"):
+            out[b["nextBozoId"]] = {"lastDate": b["date"], "betsSince": len(closed) - i - 1,
+                                    "daysSince": (date.fromisoformat(today) - date.fromisoformat(b["date"])).days,
+                                    "how": b.get("nextBozoMethod")}
+    return out
 
 
 def current_bet(bets):
