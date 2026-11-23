@@ -22,6 +22,7 @@ export interface Leg {
   text: string;
   odds?: number;
   sgp?: boolean;
+  sgpOdds?: number;
   result?: Result;
   source?: string;
   carriedOver?: boolean;
@@ -69,6 +70,7 @@ export interface Bet {
   hasSlip?: boolean;
   slipUrl?: string;
   legs: Leg[];
+  sgpGroups?: { playerIds: string[]; odds: number }[];
   voting?: Voting;
   ballot?: BallotEntry[];
   tracker?: { runs: number; lastRun?: string; nextRun?: string | null; why?: string };

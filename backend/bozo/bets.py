@@ -23,12 +23,27 @@ def counted_legs(bet):
     return [l for l in bet.get("legs", []) if not l.get("carriedOver")]
 
 
+def parlay_decimal(bet, legs):
+    """Decimal odds for these legs. A same-game parlay inside the bet (bet["sgpGroups"]: [{"playerIds", "odds"}])
+    is priced at its combined slip price, not the product of its legs. If one of its legs is missing
+    (pushed), the rest fall back to their own odds."""
+    ids = {l["playerId"] for l in legs}
+    prices, grouped = [], set()
+    for g in bet.get("sgpGroups") or []:
+        members = set(g.get("playerIds") or [])
+        if members and members <= ids and g.get("odds") is not None:
+            prices.append(g["odds"])
+            grouped |= members
+    prices += [l.get("odds") for l in legs if l["playerId"] not in grouped]
+    return odds.parlay_decimal(prices)
+
+
 def computed_odds(bet):
     """Parlay odds from leg odds, with pushes dropped (standard book behaviour)."""
     legs = [l for l in counted_legs(bet) if l.get("result") != "P"]
     if not legs:
         return None
-    d = odds.parlay_decimal([l.get("odds") for l in legs])
+    d = parlay_decimal(bet, legs)
     return odds.to_american(d) if d else None
 
 
@@ -167,7 +182,7 @@ def settle(bet, next_wager, payout=None):
         bet["result"] = "W"
         # Pushes shrink the payout; use the casino number if given, else recompute without pushed legs
         if payout is None and bet.get("wager"):
-            d = odds.parlay_decimal([l.get("odds") for l in legs if l["result"] != "P"])
+            d = parlay_decimal(bet, [l for l in legs if l["result"] != "P"])
             payout = round(bet["wager"] * d, 2) if d else bet.get("toWin")
         bet["payout"] = payout
         bet["perPerson"] = round(odds.split_winnings(payout, next_wager, len(legs)), 2)

@@ -190,7 +190,7 @@ def admin_create_bet(req):
 def admin_update_bet(req):
     bet = _bundle(req.params["betId"])
     editable = {"date", "title", "wager", "bettingFloor", "bozoId", "totalOdds", "toWin", "payout", "perPerson",
-                "nextBozoId", "nextBozoMethod", "status", "result", "notes"}
+                "nextBozoId", "nextBozoMethod", "status", "result", "notes", "sgpGroups"}
     for k, v in req.body.items():
         if k in editable:
             bet[k] = v

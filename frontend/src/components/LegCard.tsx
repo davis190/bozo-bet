@@ -1,5 +1,5 @@
+import { fmtOdds, timeAgo } from "../lib/format";
 import type { Leg, Player } from "../lib/types";
-import { timeAgo } from "../lib/format";
 import { Avatar, Odds, StatusChip, legAccent } from "./ui";
 
 export function LegCard({ leg, player, isBozo, isMe, onClick }: { leg: Leg; player?: Player; isBozo?: boolean; isMe?: boolean; onClick?: () => void }) {
@@ -23,7 +23,7 @@ export function LegCard({ leg, player, isBozo, isMe, onClick }: { leg: Leg; play
         </div>
         <div className="mt-1 font-semibold leading-snug break-words">
           {leg.text} <Odds o={leg.odds} className="text-sm" />
-          {leg.sgp && <span className="chip ml-1 bg-surface-2 text-muted">SGP</span>}
+          {(leg.sgp || leg.sgpOdds != null) && <span className="chip ml-1 bg-surface-2 text-muted">SGP{leg.sgpOdds != null && ` ${fmtOdds(leg.sgpOdds)}`}</span>}
         </div>
         {leg.live?.detail && <div className="text-xs text-ink-2 mt-1">{leg.live.detail}</div>}
         {progress != null && (

@@ -39,6 +39,10 @@ LEG_FIELDS = ("playerId", "text", "odds", "sgp", "parsed", "result", "resultSour
 def bet(b, names, viewer_pid=None):
     out = {k: v for k, v in b.items() if k not in ("legs", "votes", "slipKey")}
     out["legs"] = [{k: l.get(k) for k in LEG_FIELDS if l.get(k) is not None} for l in b.get("legs", [])]
+    for g in b.get("sgpGroups") or []:  # same-game parlay: show the combined price on each of its legs
+        for l in out["legs"]:
+            if l["playerId"] in (g.get("playerIds") or []):
+                l["sgpOdds"] = g.get("odds")
     out["computedOdds"] = rules.computed_odds(b)
     out["hasSlip"] = bool(b.get("slipKey"))
     if names and b.get("slipKey"):

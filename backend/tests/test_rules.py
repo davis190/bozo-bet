@@ -258,3 +258,12 @@ def test_vote_grudges_hidden_while_vote_open(fake):
     rules.cast_vote(bet, "p2", "p1")
     rules.cast_vote(bet, "p3", "p2")
     assert stats.compute([bet], players)["votes"] == {"p1": {"p2": 1}, "p2": {"p1": 1}, "p3": {"p2": 1}}
+
+
+def test_same_game_parlay_priced_at_combined_odds(fake):
+    bet = _bet_with([("p1", "Panthers ML", -150), ("p2", "Young O1.5 TD", -110), ("p3", "KC -16", -110)])
+    assert rules.computed_odds(bet) == odds.to_american(odds.parlay_decimal([-150, -110, -110]))
+    bet["sgpGroups"] = [{"playerIds": ["p1", "p2"], "odds": 143}]
+    assert rules.computed_odds(bet) == odds.to_american(odds.parlay_decimal([143, -110]))
+    rules.upsert_leg(bet, "p2", {"result": "P"}, "admin", admin=True)  # group broken by a push -> own odds
+    assert rules.computed_odds(bet) == odds.to_american(odds.parlay_decimal([-150, -110]))
