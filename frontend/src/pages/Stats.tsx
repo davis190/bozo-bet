@@ -347,16 +347,16 @@ function SoleAssassins({ rows, players }: { rows: PlayerStats[]; players: Record
   const total = killers.reduce((t, r) => t + r.leftOnTable, 0);
   const day = (d: string) => fmtDate(d, { month: "short", day: "numeric", year: "numeric" });
   return (
-    <Section title="Sole Assassins 🔪" right={<span className="text-xs text-muted">one leg, whole parlay dead</span>}>
-      <div className="card p-4">
+    <Section title="Sole Assassins" right={<span className="text-xs text-muted whitespace-nowrap">🔪 one leg killed it</span>}>
+      <div className="card p-4 min-w-0">
         <div className="text-sm text-ink-2">
           <b className="text-ink">{fmtMoney(total)}</b> left on the table by lone wolves.
         </div>
-        <div className="grid gap-4 mt-4">
+        <div className="grid grid-cols-1 gap-4 mt-4">
           {killers.map((r) => {
             const last = r.soleKills[0];
             return (
-              <details key={r.playerId} className="group">
+              <details key={r.playerId} className="group min-w-0">
                 <summary className="list-none cursor-pointer">
                   <div className="flex items-center gap-3">
                     <Avatar p={players[r.playerId]} size={32} />
@@ -371,7 +371,7 @@ function SoleAssassins({ rows, players }: { rows: PlayerStats[]; players: Record
                     </div>
                   </div>
                   {last && (
-                    <div className="text-xs text-ink-2 mt-1.5 pl-11">
+                    <div className="text-xs text-ink-2 mt-1.5 pl-11 break-words">
                       Last: <b>{day(last.date)}</b> · {last.text} {last.odds != null && <span className="font-mono">{fmtOdds(last.odds)}</span>}
                       {last.toWin ? <> · cost {fmtMoney(last.toWin)}</> : null}
                       <span className="text-muted"> · {fmtMoney(r.leftOnTable)} total{r.soleKiller > 1 && <span className="group-open:hidden"> · tap for all</span>}</span>
@@ -379,9 +379,9 @@ function SoleAssassins({ rows, players }: { rows: PlayerStats[]; players: Record
                   )}
                 </summary>
                 {r.soleKiller > 1 && (
-                  <div className="pl-11 mt-2 grid gap-1">
+                  <div className="pl-11 mt-2 grid gap-1 min-w-0">
                     {r.soleKills.map((k) => (
-                      <Link key={k.betId} to={`/bets/${k.betId}`} className="text-xs flex justify-between gap-2 py-1 border-t border-[var(--border)]">
+                      <Link key={k.betId} to={`/bets/${k.betId}`} className="text-xs flex justify-between gap-2 py-1 border-t border-[var(--border)] min-w-0">
                         <span className="min-w-0 truncate"><span className="text-muted">{day(k.date)}</span> · {k.text}</span>
                         <span className="tabular whitespace-nowrap text-ink-2">{k.toWin ? fmtMoney(k.toWin) : ""}</span>
                       </Link>
