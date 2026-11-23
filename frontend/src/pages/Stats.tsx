@@ -49,8 +49,26 @@ export default function Stats() {
   const { players, setPlayers } = useSession();
   const { range, setRange, qs } = useRange();
   const cur = useApi<{ players: Player[]; droughts: Record<string, Drought>; currentBozoId?: string }>("/current");
-  const { data, error, loading } = useApi<StatsT>(`/stats?${qs}`);
+  const { data: raw, error, loading } = useApi<StatsT>(`/stats?${qs}`);
   const [sort, setSort] = useState<SortKey>("pct");
+  const [showRetired, setShowRetired] = useState(() => {
+    try { return localStorage.getItem("bozo.showRetired") === "1"; } catch { return false; }
+  });
+  useEffect(() => { try { localStorage.setItem("bozo.showRetired", showRetired ? "1" : "0"); } catch { /* ignore */ } }, [showRetired]);
+
+  // Retired players drop out of per-player views only; group numbers always include everyone who bet
+  const data = useMemo(() => {
+    if (!raw || showRetired) return raw;
+    const visible = (id: string) => players[id]?.active !== false;
+    return {
+      ...raw,
+      players: raw.players.filter((p) => visible(p.playerId)),
+      group: { ...raw.group, heartbreaks: (raw.group.heartbreaks ?? []).filter((h) => visible(h.playerId)) },
+      votes: Object.fromEntries(Object.entries(raw.votes).filter(([v]) => visible(v))
+        .map(([v, c]) => [v, Object.fromEntries(Object.entries(c).filter(([cand]) => visible(cand)))])),
+    };
+  }, [raw, showRetired, players]);
+  const retiredCount = (raw?.players ?? []).filter((p) => players[p.playerId]?.active === false).length;
 
   useEffect(() => { if (cur.data) setPlayers(cur.data.players); }, [cur.data, setPlayers]);
 
@@ -127,6 +145,13 @@ export default function Stats() {
       <AboveFiveHundred data={data} players={players} />
       <WallOfShame data={data} players={players} />
       <VoteMatrix data={data} players={players} />
+
+      {retiredCount > 0 && (
+        <label className="flex items-center justify-center gap-2 text-xs text-muted mt-10 mb-2">
+          <input type="checkbox" checked={showRetired} onChange={(e) => setShowRetired(e.target.checked)} />
+          Show retired bozos ({retiredCount})
+        </label>
+      )}
     </div>
   );
 }
