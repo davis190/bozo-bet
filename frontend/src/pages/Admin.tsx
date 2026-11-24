@@ -67,10 +67,17 @@ export function BetControl() {
   return (
     <div>
       {el}
-      <div className="flex gap-1.5 mt-4 overflow-x-auto">
-        {choices.length > 1 && choices.map((b) => (
-          <button key={b.id} onClick={() => { setCreating(null); setBetId(b.id); }} className={`chip !py-1.5 !px-3 whitespace-nowrap ${betId === b.id && !creating ? "bg-accent text-white" : "bg-surface-2"}`}>{b.title ?? `Bozo ${b.date}`}</button>
-        ))}
+      <div className="flex gap-1.5 mt-4 items-center overflow-x-auto">
+        {choices.length > 1 && (
+          <div className="flex p-1 rounded-full bg-surface-2 gap-1" role="tablist" aria-label="Which bet">
+            {choices.map((b) => (
+              <button key={b.id} role="tab" aria-selected={betId === b.id && !creating} onClick={() => { setCreating(null); setBetId(b.id); }}
+                className={`chip !py-1.5 !px-3 whitespace-nowrap ${betId === b.id && !creating ? "bg-accent text-white" : ""}`}>
+                {b.kind === "side" ? `🎲 ${b.title || "Side bet"}` : `🤡 Bozo bet`}
+              </button>
+            ))}
+          </div>
+        )}
         <button onClick={() => { setCreating("side"); setBetId(null); }} className={`chip !py-1.5 !px-3 whitespace-nowrap ml-auto ${creating === "side" ? "bg-accent text-white" : "bg-surface-2"}`}>🎲 Open side bet</button>
       </div>
       {creating || !betId || !bet.data ? (

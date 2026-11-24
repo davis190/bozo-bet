@@ -32,7 +32,7 @@ export function SubmitLeg({ open, onClose, bet, existing, onSaved }: { open: boo
     setBusy(true);
     setErr(null);
     try {
-      const r = await post<ParseResp>("/legs/parse", { text: raw });
+      const r = await post<ParseResp>("/legs/parse", { text: raw, betId: bet.id });
       setParsed(r);
       setText(r.leg.text);
       setOdds(r.leg.odds != null ? String(r.leg.odds) : "");
@@ -65,7 +65,7 @@ export function SubmitLeg({ open, onClose, bet, existing, onSaved }: { open: boo
 
   const confirming = parsed || manual;
   return (
-    <Sheet open={open} onClose={onClose} title={existing ? "Change your leg" : "Your leg"}>
+    <Sheet open={open} onClose={onClose} title={(bet.kind === "side" ? `🎲 ${bet.title || "Side bet"}: ` : "") + (existing ? "Change your leg" : "Your leg")}>
       {!confirming ? (
         <>
           {me?.scouting && (me.scouting.ride || me.scouting.fade) && (

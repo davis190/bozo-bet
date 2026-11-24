@@ -163,7 +163,7 @@ def parse_leg(req):
             r = (me_["splits"].get(key) or {}).get(val)
             if r and r["w"] + r["l"] >= 3:
                 history.append({"label": f"{val} bets", "w": r["w"], "l": r["l"], "pct": r["pct"]})
-    cur = rules.current_bet(db.list_bets())
+    cur = db.get_bet_bundle(req.body["betId"]) if req.body.get("betId") else rules.current_bet(db.list_bets())
     return {"leg": parsed, "history": history,
             "floorWarning": rules.floor_warning(cur, parsed.get("odds")) if cur else None}
 

@@ -36,6 +36,7 @@ export default function Home() {
   const { data, error, loading, reload } = useApi<Current>("/current");
   const summary = useApi<Stats["group"]>(ready && role === "public" ? "/summary" : null);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [sideSubmit, setSideSubmit] = useState<Bet | null>(null);
 
   useEffect(() => {
     if (data) setPlayers(data.players);
@@ -113,20 +114,31 @@ export default function Home() {
       {!!data?.sideBets.length && (
         <Section title="Side Action">
           <div className="grid gap-2">
-            {data.sideBets.map((b) => (
-              <Link key={b.id} to={atLeast("viewer") ? `/bets/${b.id}` : "#"} className="card p-3.5 flex justify-between items-center">
-                <div>
-                  <div className="font-bold">{b.title || "Side bet"}</div>
-                  <div className="text-xs text-muted">{b.legs.length} legs · no bozo on the line</div>
+            {data.sideBets.map((b) => {
+              const mine = b.legs.find((l) => l.playerId === me?.id);
+              return (
+                <div key={b.id} className="card p-3.5">
+                  <Link to={atLeast("viewer") ? `/bets/${b.id}` : "#"} className="flex justify-between items-center">
+                    <div>
+                      <div className="font-bold">🎲 {b.title || "Side bet"}</div>
+                      <div className="text-xs text-muted">{b.legs.length} legs · {b.status === "OPEN" ? "taking legs" : "locked"} · doesn't count for stats</div>
+                    </div>
+                    <span className="font-mono text-sm">{fmtOdds(b.totalOdds ?? b.computedOdds)}</span>
+                  </Link>
+                  {b.status === "OPEN" && me && atLeast("player") && (
+                    <button className="btn btn-ghost w-full mt-2.5 text-sm" onClick={() => setSideSubmit(b)}>
+                      {mine ? `Change your leg: ${mine.text}` : "Submit your side bet leg"}
+                    </button>
+                  )}
                 </div>
-                <span className="font-mono text-sm">{fmtOdds(b.totalOdds ?? b.computedOdds)}</span>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         </Section>
       )}
 
       {bet && <SubmitLeg open={submitOpen} onClose={() => setSubmitOpen(false)} bet={bet} existing={myLeg} onSaved={reload} />}
+      {sideSubmit && <SubmitLeg open onClose={() => setSideSubmit(null)} bet={sideSubmit} existing={sideSubmit.legs.find((l) => l.playerId === me?.id)} onSaved={reload} />}
     </div>
   );
 }

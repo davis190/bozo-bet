@@ -117,10 +117,15 @@ def bet_open(bet, players):
          f"Get your legs in: <{SITE}|Bozo Bet>")
 
 
+def _side(bet):
+    """Side bets run alongside the bozo bet, so their posts say which bet they're about."""
+    return f":game_die: *{bet.get('title') or 'Side bet'}* · " if bet.get("kind") == "side" else ""
+
+
 def leg_submitted(bet, leg, players, count=None, settings=None):
     """Returns the ts: reactions on this post are the group's verdict on the leg."""
     tail = f" _({count[0]}/{count[1]} in)_" if count else ""
-    return main(f":memo: *{_name(players, leg['playerId'])}* is in: {leg['text']} {_odds(leg.get('odds'))}{tail}\n"
+    return main(f"{_side(bet)}:memo: *{_name(players, leg['playerId'])}* is in: {leg['text']} {_odds(leg.get('odds'))}{tail}\n"
                 "_React to judge it_ :+1: :-1:", settings)
 
 
@@ -130,6 +135,10 @@ def legs_summary(bet, players, changed=False):
              if not l.get("carriedOver")]
     head = ":rotating_light: *Legs changed*" if changed else ":clown_face: *All legs are in*"
     bozo = _name(players, bet.get("bozoId")) if bet.get("bozoId") else "TBD"
+    if bet.get("kind") == "side":
+        main(f"{_side(bet)}{head}" + (f" - {bozo} is placing it" if bet.get("bozoId") else "") + "\n"
+             + "\n".join(lines) + f"\n<{SITE}|Open Bozo Bet>")
+        return
     main(f"{head} - {bozo} is headed to the casino\n" + "\n".join(lines) + f"\n<{SITE}|Open Bozo Bet>")
 
 
