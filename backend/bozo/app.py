@@ -425,13 +425,14 @@ def admin_resolve_check(req):
 @route("POST", "/api/admin/slack-extract", "admin")
 def admin_slack_extract(req):
     players = db.list_players()
-    out = llm.extract_slack(req.body.get("conversation", ""), [p["name"] for p in players if p.get("active")])
+    roster = [p["name"] + (f" (Slack: {', '.join(p['slackNames'])})" if p.get("slackNames") else "") for p in players if p.get("active")]
+    out = llm.extract_slack(req.body.get("conversation", ""), roster)
     by_name = {p["name"].lower(): p["id"] for p in players}
     aliases = {a.lower(): p["id"] for p in players for a in p.get("slackNames", [])}
     for leg in out["legs"]:
-        leg["playerId"] = (by_name.get((leg.get("bettor") or "").lower())
-                           or aliases.get((leg.get("slackName") or "").lower().lstrip("@"))
-                           or by_name.get((leg.get("slackName") or "").lower()))
+        handle = (leg.get("slackName") or "").strip().lstrip("@").lower()
+        # The saved Slack names are facts; the model's guess at the bettor is only a fallback
+        leg["playerId"] = aliases.get(handle) or by_name.get(handle) or by_name.get((leg.get("bettor") or "").lower())
     return out
 
 

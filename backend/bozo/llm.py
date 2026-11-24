@@ -208,7 +208,8 @@ def extract_slack(conversation, roster, model=None):
     return structured(
         BET_CONTEXT + "Extract each person's FINAL submitted leg from a pasted Slack conversation. If someone changes their pick, "
         "keep only the last one. Ignore jokes, trash talk and other people's suggestions. Exactly one leg per group member. "
-        "Keep each leg's wording close to how its owner wrote it. Group members (bettors) on the roster: " + ", ".join(roster),
+        "Keep each leg's wording close to how its owner wrote it. Slack handles in parentheses belong to that member. "
+        "Group members (bettors) on the roster: " + ", ".join(roster),
         conversation, schema, max_tokens=4000, model=model, task="slack")
 
 
