@@ -216,7 +216,8 @@ def settle(bet, next_wager, payout=None):
     if not losers:
         bet["result"] = "W"
         bet["payout"] = payout if payout is not None else slip_payout(bet, legs)
-        bet["perPerson"] = round(odds.split_winnings(bet["payout"], next_wager, len(legs)), 2)
+        # side bets don't fund a next bet, so the whole payout is split
+        bet["perPerson"] = round(odds.split_winnings(bet["payout"], 0 if bet["kind"] == "side" else next_wager, len(legs)), 2)
     else:
         bet["result"] = "L"
 

@@ -264,7 +264,7 @@ def admin_lock(req):
         bet["wager"] = b["wager"]
     if b.get("toWin"):
         bet["toWin"] = b["toWin"]
-    if first and bet["kind"] == "bozo":
+    if first:
         bet["slack"] = {**(bet.get("slack") or {}), "lockTs": slack.slip_locked(bet, _players())}
     rules._save_meta(bet)
     _start_tracker(bet["id"], "slip locked")
@@ -294,6 +294,8 @@ def admin_settle(req):
         commentary.attach(bet, players)
     if bet["kind"] == "bozo":
         (slack.voting_open if outcome == "vote" else slack.new_bozo)(bet, players)
+    else:
+        slack.side_result(bet, players)
     return _present(req, bet)
 
 

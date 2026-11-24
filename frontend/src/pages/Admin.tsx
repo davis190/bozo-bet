@@ -359,12 +359,24 @@ function SlackImport() {
   const [busy, setBusy] = useState(false);
   const { run, el } = useToast();
   useEffect(() => { if (cur.data) setPlayers(cur.data.players); }, [cur.data, setPlayers]);
-  const bet = cur.data?.bet;
+  // Pasted legs can go to the bozo bet or any side bet still taking legs
+  const targets = [cur.data?.bet, ...(cur.data?.sideBets ?? []).filter((b) => b.status === "OPEN")].filter(Boolean) as Bet[];
+  const [targetId, setTargetId] = useState<string | null>(null);
+  const bet = targets.find((b) => b.id === targetId) ?? targets[0];
+  const betName = (b: Bet) => (b.kind === "side" ? `🎲 ${b.title || "Side bet"}` : "🤡 Bozo bet");
 
   return (
     <div>
       {el}
       <Section title="Paste from Slack">
+        {targets.length > 1 && (
+          <div className="flex p-1 rounded-full bg-surface-2 gap-1 mb-2 w-fit max-w-full overflow-x-auto" role="tablist" aria-label="Add legs to">
+            {targets.map((b) => (
+              <button key={b.id} role="tab" aria-selected={b.id === bet?.id} onClick={() => setTargetId(b.id)}
+                className={`chip !py-1.5 !px-3 whitespace-nowrap ${b.id === bet?.id ? "bg-accent text-white" : ""}`}>{betName(b)}</button>
+            ))}
+          </div>
+        )}
         <textarea className="input min-h-48 font-mono text-xs" placeholder="Paste the whole thread. Trash talk and all." value={text} onChange={(e) => setText(e.target.value)} />
         <button className="btn btn-primary w-full mt-2" disabled={!text.trim() || busy} onClick={async () => {
           setBusy(true);
@@ -373,7 +385,7 @@ function SlackImport() {
         }}>{busy ? "Reading the group chat…" : "Extract bets 🤖"}</button>
       </Section>
       {legs && (
-        <Section title="Review" right={<span className="text-xs text-muted">{bet ? `→ ${bet.date}` : "no active bet!"}</span>}>
+        <Section title="Review" right={<span className="text-xs text-muted">{bet ? `→ ${betName(bet)} · ${bet.date}` : "no active bet!"}</span>}>
           <div className="grid gap-2">
             {legs.map((l, i) => (
               <div key={i} className="card p-3 grid gap-2">
@@ -397,7 +409,7 @@ function SlackImport() {
               }
               setLegs(null);
               setText("");
-            }, "Legs added to this week's bet")}>Apply {legs.filter((x) => x.playerId).length} legs</button>
+            }, `Legs added to ${bet ? betName(bet) : "the bet"}`)}>Apply {legs.filter((x) => x.playerId).length} legs</button>
           </div>
         </Section>
       )}

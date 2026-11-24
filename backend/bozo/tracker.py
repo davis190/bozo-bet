@@ -424,11 +424,10 @@ def run(bet_id, reason="scheduled"):
         db.put_leg(bet, leg)
         lines.append(f"{ICON.get(live['status'], '•')} {name}: {leg['text']} — {live.get('detail', '')}")
 
-    # New results go in the thread under the slip post; the leg that kills the parlay is broadcast
-    if bet["kind"] == "bozo":
-        for leg in finals:
-            slack.leg_final(bet, leg, players, first_loss=leg["result"] == "L" and not dead)
-            dead = dead or leg["result"] == "L"
+    # New results go in the thread under the slip post (side bets too); the leg that kills the parlay is broadcast
+    for leg in finals:
+        slack.leg_final(bet, leg, players, first_loss=leg["result"] == "L" and not dead)
+        dead = dead or leg["result"] == "L"
 
     # Everything decided -> settle like the admin would
     outcome = None
@@ -439,6 +438,8 @@ def run(bet_id, reason="scheduled"):
             commentary.attach(bet, players)
         if bet["kind"] == "bozo":
             (slack.voting_open if outcome == "vote" else slack.new_bozo)(bet, players)
+        else:
+            slack.side_result(bet, players)
 
     nxt, why = (None, "all legs decided") if outcome else _next_run(bet, settings)
     tracker["runs"] += 1

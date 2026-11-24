@@ -56,6 +56,18 @@ def test_hit_keeps_bozo_and_splits_minus_next_wager(fake):
     assert bet["nextBozoId"] == "p1" and bet["status"] == "CLOSED"
 
 
+def test_side_bet_hit_splits_the_whole_payout(fake):
+    bet = rules.create_bet("side", "2026-11-26", 10, title="Thanksgiving")
+    for pid in ("p1", "p2"):
+        rules.upsert_leg(bet, pid, {"text": pid, "odds": 100}, "app")
+    rules.lock(bet)
+    for pid in ("p1", "p2"):
+        rules.upsert_leg(bet, pid, {"result": "W"}, "admin", admin=True)
+    assert rules.settle(bet, next_wager=10) == "hit"
+    assert bet["payout"] == 40.0 and bet["perPerson"] == 20.0  # no next bet to fund
+    assert bet["status"] == "CLOSED" and not bet.get("nextBozoId")
+
+
 def test_single_loser_is_auto_bozo_even_with_a_push(fake):
     bet = _bet_with([("p1", "a", 100), ("p2", "b", 100), ("p3", "c", 100)])
     for pid, r in (("p1", "W"), ("p2", "L"), ("p3", "P")):

@@ -145,7 +145,7 @@ def legs_summary(bet, players, changed=False):
 def slip_locked(bet, players):
     """Returns the ts so leg results can thread under it."""
     n = len([l for l in bet.get("legs", []) if not l.get("carriedOver")])
-    return main(f":lock: *Slip's in.* {n} legs at {_fmt_odds(bet.get('totalOdds'))}, {_money(bet.get('wager'))} to win "
+    return main(f"{_side(bet)}:lock: *Slip's in.* {n} legs at {_fmt_odds(bet.get('totalOdds'))}, {_money(bet.get('wager'))} to win "
                 f"{_money(bet.get('toWin'))}. Tracker's on it - results land in this thread. <{SITE}|Sweat along>")
 
 
@@ -155,7 +155,7 @@ def leg_final(bet, leg, players, first_loss=False):
     detail = ((leg.get("live") or {}).get("detail") or "").replace("Final · ", "")
     text = f"{icon} *{_name(players, leg['playerId'])}*: {leg['text']}" + (f" - {detail}" if detail else "")
     if first_loss:
-        text = f":skull: *The parlay is dead.*\n{text}"
+        text = f"{_side(bet)}:skull: *The parlay is dead.*\n{text}"
     main(text, thread_ts=(bet.get("slack") or {}).get("lockTs"), broadcast=first_loss)
 
 
@@ -164,6 +164,17 @@ def parlay_hit(bet, players):
          f"{_money(bet.get('perPerson'))} each after funding the next bet. "
          f"{_name(players, bet.get('nextBozoId'))} stays bozo." + _next_open(bet),
          thread_ts=(bet.get("slack") or {}).get("lockTs"), broadcast=True)
+
+
+def side_result(bet, players):
+    """A side bet finished. No bozo on the line, so it's just hit or miss."""
+    if bet.get("result") == "W":
+        text = (f"{_side(bet)}:moneybag: *IT HIT!* {_fmt_odds(bet.get('totalOdds'))} cashed for {_money(bet.get('payout'))}"
+                f" - {_money(bet.get('perPerson'))} each.")
+    else:
+        losers = [_name(players, l["playerId"]) for l in bet.get("legs", []) if l.get("result") == "L"]
+        text = f"{_side(bet)}:x: *Missed* ({bet.get('record', '')}). Sunk by {', '.join(losers)}. No bozo on the line, just shame."
+    main(text, thread_ts=(bet.get("slack") or {}).get("lockTs"), broadcast=True)
 
 
 def voting_open(bet, players):
