@@ -89,10 +89,10 @@ export interface Bet {
   payout?: number;
   perPerson?: number;
   result?: Result;
-  outcome?: "hit" | "single" | "vote" | "reload" | "miss";
+  outcome?: "hit" | "single" | "vote" | "reload" | "miss" | "kept";
   record?: string;
   nextBozoId?: string;
-  nextBozoMethod?: "voted" | "auto" | "reload" | "stays";
+  nextBozoMethod?: "voted" | "auto" | "reload" | "stays" | "kept";
   candidates?: string[];
   tie?: string[];
   reloadOf?: string;
@@ -101,6 +101,8 @@ export interface Bet {
   slipUrl?: string;
   legs: Leg[];
   sgpGroups?: { playerIds: string[]; odds: number }[];
+  /** Side bet: counts for stats, but a miss keeps the current bozo instead of going to a vote. */
+  noVote?: boolean;
   voting?: Voting;
   ballot?: BallotEntry[];
   tracker?: { runs: number; lastRun?: string; nextRun?: string | null; why?: string };

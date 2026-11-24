@@ -8,7 +8,7 @@ import { LegCard } from "../components/LegCard";
 import { VoteTally } from "../components/VoteTally";
 import { Avatar, Empty, ErrorBox, Section, Spinner } from "../components/ui";
 
-const METHOD: Record<string, string> = { voted: "🗳️ voted", auto: "🎯 only loser", reload: "🔁 reload", stays: "💰 hit, goes again" };
+const METHOD: Record<string, string> = { voted: "🗳️ voted", auto: "🎯 only loser", reload: "🔁 reload", stays: "💰 hit, goes again", kept: "🎲 side bet, no vote" };
 
 export default function History() {
   const { setPlayers, players } = useSession();
@@ -53,7 +53,7 @@ export default function History() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-sm">
-                  {b.title ?? (b.result === "W" ? "HIT 💰" : b.status !== "CLOSED" ? "In progress" : `${b.record ?? ""} ${b.outcome === "reload" ? "· reloaded" : ""}`)}
+                  {b.title ?? (b.result === "W" ? "HIT 💰" : b.status !== "CLOSED" ? "In progress" : `${b.record ?? ""} ${b.outcome === "reload" ? "· reloaded" : b.noVote ? "· side bet" : ""}`)}
                 </div>
                 <div className="text-xs text-ink-2 truncate">
                   {losers.length ? `💀 ${losers.map((l) => players[l.playerId]?.displayName).join(", ")}` : b.result === "W" ? `${fmtMoney(b.payout)} paid out` : ""}

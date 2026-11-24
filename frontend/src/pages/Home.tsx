@@ -14,6 +14,7 @@ const HOW: Record<string, string> = {
   auto: "the only leg that lost. No vote needed.",
   reload: "self-proclaimed. Reloaded like a champ.",
   stays: "goes again. The parlay HIT. 💰",
+  kept: "keeps the job. Side bet missed, no vote.",
 };
 
 /** Survival odds of the parlay: product of implied probabilities of undecided legs. */

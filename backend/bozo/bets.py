@@ -8,6 +8,8 @@ Bet lifecycle (bozo bets):
            the next OPEN bet is created right away with that bozo and the carried-over wager
 
 Side bets skip VOTING: OPEN -> LOCKED -> CLOSED.
+No-vote bozo bets (bet["noVote"], an admin checkbox) count for stats like any bozo bet, but a miss never
+goes to a vote or crowns the loser: the current bozo keeps the job (nextBozoMethod "kept").
 """
 import re
 from collections import Counter
@@ -223,6 +225,8 @@ def settle(bet, next_wager, payout=None):
         bet["status"] = "CLOSED"
     elif not losers:
         bet.update(outcome="hit", nextBozoId=bet.get("bozoId"), nextBozoMethod="stays", status="CLOSED")
+    elif bet.get("noVote"):
+        bet.update(outcome="kept", nextBozoId=bet.get("bozoId"), nextBozoMethod="kept", status="CLOSED")
     elif len(losers) == 1:
         bet.update(outcome="single", nextBozoId=losers[0], nextBozoMethod="auto", status="CLOSED")
     else:
@@ -231,6 +235,17 @@ def settle(bet, next_wager, payout=None):
     _save_meta(bet)
     open_next(bet)
     return bet["outcome"]
+
+
+def skip_vote(bet):
+    """The admin ticked no-vote after the vote already opened: call it off, the bozo keeps the job."""
+    _require(bet, "VOTING")
+    bet.update(outcome="kept", nextBozoId=bet.get("bozoId"), nextBozoMethod="kept", status="CLOSED", voteClosedAt=now_iso())
+    bet.pop("tie", None)
+    _touch(bet)
+    _save_meta(bet)
+    open_next(bet)
+    return bet
 
 
 def open_next(bet):

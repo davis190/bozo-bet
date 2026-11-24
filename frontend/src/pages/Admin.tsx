@@ -131,7 +131,7 @@ function BetEditor({ bet, players, run, onChange, onNew }: { bet: Bet; players: 
 
   return (
     <>
-      <Section title={bet.title ?? `Bozo bet · ${bet.date}`} right={<span className="chip bg-surface-2">{bet.status}</span>}>
+      <Section title={bet.title ?? `Bozo bet · ${bet.date}`} right={<span className="flex gap-1.5">{bet.noVote && <span className="chip bg-surface-2">🎲 no vote</span>}<span className="chip bg-surface-2">{bet.status}</span></span>}>
         <div className="card p-4 grid gap-3">
           <div className="grid grid-cols-3 gap-2">
             <Field label="Wager"><input className="input" value={meta.wager} onChange={(e) => setMeta({ ...meta, wager: e.target.value })} /></Field>
@@ -147,6 +147,17 @@ function BetEditor({ bet, players, run, onChange, onNew }: { bet: Bet; players: 
             await patch(`/admin/bets/${bet.id}`, { wager: Number(meta.wager) || null, bettingFloor: meta.bettingFloor ? parseInt(meta.bettingFloor, 10) : null, bozoId: meta.bozoId || null });
             await onChange();
           })}>Save details</button>
+          {bet.kind === "bozo" && bet.status !== "CLOSED" && (
+            <label className="flex items-start gap-3 text-sm cursor-pointer">
+              <input type="checkbox" className="mt-0.5 w-5 h-5 accent-[var(--accent)]" checked={!!bet.noVote}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  if (on && bet.status === "VOTING" && !confirm("This calls off the vote in progress. The current bozo keeps the job. Continue?")) return;
+                  run(async () => { await patch(`/admin/bets/${bet.id}`, { noVote: on }); await onChange(); }, on ? "Side bet: no vote" : "Back to a normal bozo bet");
+                }} />
+              <span><b>Side bet: no vote</b><span className="block text-xs text-muted">Counts for stats. If it misses, nobody's voted in: the current bozo keeps the job.</span></span>
+            </label>
+          )}
           <div className="text-sm text-ink-2">Odds {fmtOdds(bet.totalOdds ?? bet.computedOdds)} {bet.totalOdds == null && bet.computedOdds != null && "(computed)"}</div>
         </div>
       </Section>

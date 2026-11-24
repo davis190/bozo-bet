@@ -205,12 +205,15 @@ def admin_create_bet(req):
 def admin_update_bet(req):
     bet = _bundle(req.params["betId"])
     editable = {"date", "title", "wager", "bettingFloor", "bozoId", "totalOdds", "toWin", "payout", "perPerson",
-                "nextBozoId", "nextBozoMethod", "status", "result", "notes", "sgpGroups"}
+                "nextBozoId", "nextBozoMethod", "status", "result", "notes", "sgpGroups", "noVote"}
     for k, v in req.body.items():
         if k in editable:
             bet[k] = v
     rules._touch(bet)
     rules._save_meta(bet)
+    if bet.get("noVote") and bet["kind"] == "bozo" and bet["status"] == "VOTING":
+        rules.skip_vote(bet)
+        slack.new_bozo(bet, _players())
     return _present(req, bet)
 
 

@@ -64,6 +64,29 @@ def test_single_loser_is_auto_bozo_even_with_a_push(fake):
     assert bet["nextBozoId"] == "p2" and bet["nextBozoMethod"] == "auto"
 
 
+def test_no_vote_bet_keeps_the_bozo_on_a_miss(fake):
+    bet = _bet_with([("p1", "a", 100), ("p2", "b", 100), ("p3", "c", 100)])
+    bet["noVote"] = True
+    for pid, r in (("p1", "W"), ("p2", "L"), ("p3", "L")):
+        rules.upsert_leg(bet, pid, {"result": r}, "admin", admin=True)
+    assert rules.settle(bet, 10) == "kept"
+    assert bet["status"] == "CLOSED" and bet["nextBozoId"] == "p1" and bet["nextBozoMethod"] == "kept"
+    assert rules.current_bet(fake.list_bets())["bozoId"] == "p1"  # next bet opened with the same bozo
+    # still counts for stats, but nobody gets credited as bozo for it
+    s = stats.compute([bet], [{"id": p, "name": p, "active": True, "slot": i} for i, p in enumerate(("p1", "p2", "p3"), 1)])
+    assert s["group"]["parlays"] == 1
+
+
+def test_ticking_no_vote_during_a_vote_calls_it_off(fake):
+    bet = _bet_with([("p1", "a", 100), ("p2", "L", 100), ("p3", "c", 100)])
+    for pid, r in (("p1", "W"), ("p2", "L"), ("p3", "L")):
+        rules.upsert_leg(bet, pid, {"result": r}, "admin", admin=True)
+    assert rules.settle(bet, 10) == "vote"
+    rules.cast_vote(bet, "p1", "p2")
+    rules.skip_vote(bet)
+    assert bet["status"] == "CLOSED" and bet["nextBozoId"] == "p1" and bet["nextBozoMethod"] == "kept"
+
+
 def test_vote_hidden_until_all_voted_then_auto_closes(fake):
     bet = _bet_with([("p1", "a", 100), ("p2", "b", 100), ("p3", "c", 100)])
     for pid, r in (("p1", "L"), ("p2", "L"), ("p3", "W")):

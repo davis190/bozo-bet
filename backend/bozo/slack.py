@@ -186,6 +186,9 @@ def new_bozo(bet, players):
     if bet.get("nextBozoMethod") == "stays":
         return parlay_hit(bet, players)
     who = _name(players, bet["nextBozoId"])
+    if bet.get("nextBozoMethod") == "kept":
+        main(f":shrug: *Side bet missed* ({bet.get('record', '')}). No vote on this one - *{who}* stays bozo." + _next_open(bet))
+        return
     if bet.get("nextBozoMethod") == "reload":
         text = f":repeat: *{who} reloaded.* Self-proclaimed bozo. Everyone else's legs carried over - change yours if you want: <{SITE}|Bozo Bet>"
     else:
