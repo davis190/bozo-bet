@@ -50,13 +50,14 @@ export function BetControl() {
   const { setPlayers, players } = useSession();
   const cur = useApi<Current>("/current");
   const [betId, setBetId] = useState<string | null>(id ?? null);
+  const [creating, setCreating] = useState<"bozo" | "side" | null>(null);
   const bet = useApi<Bet>(betId ? `/bets/${betId}` : null, [betId]);
   const { run, el } = useToast();
 
   useEffect(() => { if (cur.data) setPlayers(cur.data.players); }, [cur.data, setPlayers]);
   useEffect(() => {
-    if (!id && cur.data && !betId) setBetId(cur.data.bet?.id ?? null);
-  }, [cur.data, id, betId]);
+    if (!id && cur.data && !betId && !creating) setBetId(cur.data.bet?.id ?? null);
+  }, [cur.data, id, betId, creating]);
 
   const reloadAll = async () => { await cur.reload(); await bet.reload(); };
 
@@ -66,13 +67,17 @@ export function BetControl() {
   return (
     <div>
       {el}
-      {choices.length > 1 && (
-        <div className="flex gap-1.5 mt-4 overflow-x-auto">
-          {choices.map((b) => <button key={b.id} onClick={() => setBetId(b.id)} className={`chip !py-1.5 !px-3 ${betId === b.id ? "bg-accent text-white" : "bg-surface-2"}`}>{b.title ?? `Bozo ${b.date}`}</button>)}
-        </div>
-      )}
-      {!betId || !bet.data ? (
-        <CreateBet onCreated={(b) => { setBetId(b.id); cur.reload(); }} hasActive={!!cur.data?.bet} defaultWager={cur.data?.settings.defaultWager ?? 10} />
+      <div className="flex gap-1.5 mt-4 overflow-x-auto">
+        {choices.length > 1 && choices.map((b) => (
+          <button key={b.id} onClick={() => { setCreating(null); setBetId(b.id); }} className={`chip !py-1.5 !px-3 whitespace-nowrap ${betId === b.id && !creating ? "bg-accent text-white" : "bg-surface-2"}`}>{b.title ?? `Bozo ${b.date}`}</button>
+        ))}
+        <button onClick={() => { setCreating("side"); setBetId(null); }} className={`chip !py-1.5 !px-3 whitespace-nowrap ml-auto ${creating === "side" ? "bg-accent text-white" : "bg-surface-2"}`}>🎲 Open side bet</button>
+      </div>
+      {creating || !betId || !bet.data ? (
+        <CreateBet key={creating ?? "new"} initialKind={creating ?? undefined}
+          onCreated={(b) => { setCreating(null); setBetId(b.id); cur.reload(); }}
+          onCancel={creating && cur.data?.bet ? () => { setCreating(null); setBetId(cur.data!.bet!.id); } : undefined}
+          hasActive={!!cur.data?.bet} defaultWager={cur.data?.settings.defaultWager ?? 10} />
       ) : (
         <BetEditor bet={bet.data} players={players} run={run} onChange={reloadAll} onNew={() => setBetId(null)} />
       )}
@@ -80,9 +85,9 @@ export function BetControl() {
   );
 }
 
-function CreateBet({ onCreated, hasActive, defaultWager }: { onCreated: (b: Bet) => void; hasActive: boolean; defaultWager: number }) {
+function CreateBet({ onCreated, onCancel, hasActive, defaultWager, initialKind }: { onCreated: (b: Bet) => void; onCancel?: () => void; hasActive: boolean; defaultWager: number; initialKind?: "bozo" | "side" }) {
   const { players } = useSession();
-  const [f, setF] = useState({ kind: hasActive ? "side" : "bozo", date: new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" }), wager: String(defaultWager), bettingFloor: "", title: "", bozoId: "" });
+  const [f, setF] = useState({ kind: initialKind ?? (hasActive ? "side" : "bozo"), date: new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" }), wager: String(defaultWager), bettingFloor: "", title: "", bozoId: "" });
   const [err, setErr] = useState<string | null>(null);
   async function create() {
     setErr(null);
@@ -111,7 +116,9 @@ function CreateBet({ onCreated, hasActive, defaultWager }: { onCreated: (b: Bet)
             {Object.values(players).filter((p) => p.active).map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
           </select>
         </Field>
+        {f.kind === "side" && <div className="text-xs text-muted">Side bets run alongside the bozo bet. They don't count toward stats and never change who's bozo.</div>}
         <button className="btn btn-primary" onClick={create}>Open the books</button>
+        {onCancel && <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>}
         {err && <div className="text-sm" style={{ color: "var(--serious)" }}>{err}</div>}
       </div>
     </Section>
