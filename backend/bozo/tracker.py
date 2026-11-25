@@ -21,7 +21,7 @@ from datetime import timedelta, timezone
 import boto3
 
 from . import bets as rules
-from . import commentary, db, enrich, games, llm, scouting, slack
+from . import commentary, db, enrich, games, llm, odds, scouting, slack
 from .util import TZ, ApiError, now_iso
 
 log = logging.getLogger()
@@ -185,6 +185,39 @@ def _market_distance(spec, leg, s):
     if kind == "game_total" and line is not None and s.get("marketTotal") is not None:
         return abs(float(line) - s["marketTotal"]) * 10
     return None
+
+
+def market_price(spec, s):
+    """The market's current price for exactly this bet, or None. Only main lines are priced (ESPN has no alt
+    lines or prop prices), so an alt spread/total or a player prop comes back None."""
+    kind, line, team = spec.get("kind"), spec.get("line"), spec.get("team")
+    if kind == "moneyline":
+        return (s.get("marketML") or {}).get(team)
+    if kind == "spread" and line is not None and s.get("marketSpread") is not None and s.get("favorite"):
+        market = -abs(s["marketSpread"]) if team == s["favorite"] else abs(s["marketSpread"])
+        return (s.get("marketSpreadOdds") or {}).get(team) if float(line) == market else None
+    if kind == "game_total" and line is not None and s.get("marketTotal") is not None and float(line) == float(s["marketTotal"]):
+        return s.get("marketOverOdds") if spec.get("direction", "over") == "over" else s.get("marketUnderOdds")
+    return None
+
+
+ODDS_TOLERANCE = 0.03  # entered odds within 3 points of implied chance of the market are close enough to keep
+
+
+def price_leg(leg, spec, s):
+    """Legs the slip didn't price (same-game groups, missing odds): keep the entered odds if they're close to the
+    market, else take the market price, so a group's plus-money price never ends up on one leg. -> note or None."""
+    m = market_price(spec, s)
+    m = int(round(m)) if m is not None else None
+    old = leg.get("odds")
+    if m is None:
+        action = "kept" if old is not None else "missing"
+    elif old is not None and abs(odds.implied_prob(old) - odds.implied_prob(m)) <= ODDS_TOLERANCE:
+        action = "kept"
+    else:
+        leg["odds"], action = m, "updated"
+    leg["oddsCheck"] = {"entered": old, "market": m, "action": action, "at": now_iso()}
+    return action
 
 
 SPORT_OF = {lg: sport for sport, lgs in games.LEAGUES.items() for lg in lgs}
@@ -378,6 +411,10 @@ def evaluate(spec, s):
 ICON = {"WON": "✅", "LOST": "❌", "PUSH": "➖", "ON_PACE": "🟢", "IN_DOUBT": "🟡", "OFF_PACE": "🔴", "PENDING": "⏳"}
 
 
+def _fmt(o):
+    return f"{int(o):+d}" if o is not None else "no odds"
+
+
 def _players():
     return {p["id"]: p for p in db.list_players()}
 
@@ -395,7 +432,7 @@ def run(bet_id, reason="scheduled"):
         slack.ops(f":octagonal_sign: Tracker hit the daily cap ({settings['trackerMaxRunsPerDay']} runs) for bet {bet['date']}. Stopping.", settings)
         return {"stopped": "daily cap"}
 
-    cache, players, lines, mismatches, finals = {}, _players(), [], [], []
+    cache, players, lines, mismatches, finals, priced = {}, _players(), [], [], [], []
     dead = any(l.get("result") == "L" for l in rules.counted_legs(bet))
     for leg in rules.counted_legs(bet):
         name = (players.get(leg["playerId"]) or {}).get("name", leg["playerId"])
@@ -416,6 +453,14 @@ def run(bet_id, reason="scheduled"):
             continue
         try:
             summ = games.summary(spec["league"], spec["eventId"], cache)
+            # once per leg, before kickoff while the market is still up: price what the slip didn't
+            if bet["status"] == "LOCKED" and not leg.get("oddsCheck") and summ["state"] == "pre" and rules.needs_market_odds(bet, leg):
+                before = leg.get("odds")
+                action = price_leg(leg, spec, summ)
+                priced.append(f"{name}: {leg['text']} " + {
+                    "updated": f"{_fmt(before)} → *{_fmt(leg['odds'])}* (market)",
+                    "kept": f"kept {_fmt(before)}" + (f" (market {_fmt(leg['oddsCheck']['market'])})" if leg["oddsCheck"]["market"] is not None else " (no market price for this one)"),
+                    "missing": ":warning: no odds and no market price. Set it in Admin"}[action])
             live = evaluate(spec, summ)
             if live["state"] == "post":
                 leg["enrichment"] = enrich.derive({"sport": (leg.get("parsed") or {}).get("sport"), **spec}, summ, live)
@@ -465,6 +510,8 @@ def run(bet_id, reason="scheduled"):
     msg = f":satellite: *Bozo tracker* · bet {bet['date']} · run {tracker['runs']} ({reason})\n" + "\n".join(lines) + f"\n_{when}_"
     if mismatches:
         msg += "\n:warning: Doesn't match what was recorded: " + "; ".join(mismatches)
+    if priced:
+        msg += "\n:scales: Odds the slip didn't print (same-game parlays):\n" + "\n".join(f"• {p}" for p in priced)
     if outcome:
         msg += f"\n:checkered_flag: All legs decided → settled ({outcome})"
     slack.ops(msg, settings)

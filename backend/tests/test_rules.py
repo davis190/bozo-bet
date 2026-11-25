@@ -392,3 +392,28 @@ def test_same_bet_ignores_odds_only():
     from bozo.reactions import same_bet
     assert same_bet("DET ML", "DET ML (+120)")
     assert not same_bet("49ers ML", "D'Andre Swift O 12.5 Carries")
+
+
+def test_market_prices_legs_the_slip_did_not():
+    from bozo import tracker
+    s = {"marketML": {"DET": 103, "CHI": -122}, "marketSpread": -8.5, "favorite": "DAL", "marketSpreadOdds": {"DAL": -111, "PHI": -108},
+         "marketTotal": 47.5, "marketOverOdds": -116.0, "marketUnderOdds": -103.0}
+    assert tracker.market_price({"kind": "spread", "team": "DAL", "line": -8.5}, s) == -111
+    assert tracker.market_price({"kind": "spread", "team": "PHI", "line": 8.5}, s) == -108
+    assert tracker.market_price({"kind": "game_total", "line": 45, "direction": "over"}, s) is None  # alt line: no price
+    assert tracker.market_price({"kind": "player_stat", "line": 0.5}, s) is None
+    off = {"playerId": "p6", "odds": 120}  # entered +120, market +103: too far off -> market
+    assert tracker.price_leg(off, {"kind": "moneyline", "team": "DET"}, s) == "updated" and off["odds"] == 103
+    close = {"playerId": "p1", "odds": -110}
+    assert tracker.price_leg(close, {"kind": "spread", "team": "DAL", "line": -8.5}, s) == "kept" and close["odds"] == -110
+    prop = {"playerId": "p5"}
+    assert tracker.price_leg(prop, {"kind": "player_stat", "line": 1.5}, s) == "missing" and "odds" not in prop
+
+
+def test_only_unpriced_legs_need_market_odds(fake):
+    bet = _bet_with([("p1", "a", -110), ("p2", "b", -159), ("p3", "c", None)])
+    rules.lock(bet, leg_odds={"p1": -105}, sgp_groups=[{"playerIds": ["p1", "p2"], "odds": 185}])
+    legs = {l["playerId"]: l for l in bet["legs"]}
+    assert not rules.needs_market_odds(bet, legs["p1"])  # slip printed its own price
+    assert rules.needs_market_odds(bet, legs["p2"])  # inside the SGP
+    assert rules.needs_market_odds(bet, legs["p3"])  # no odds at all

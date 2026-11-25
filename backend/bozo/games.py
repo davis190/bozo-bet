@@ -136,6 +136,10 @@ def summary(league, event_id, cache=None):
            # closing moneyline per team, used to tell apart back-to-back games in a series
            "marketML": {k: v for k, v in ((home, (pick.get("homeTeamOdds") or {}).get("moneyLine")),
                                           (away, (pick.get("awayTeamOdds") or {}).get("moneyLine"))) if k and v is not None}, "marketSpread": pick.get("spread"), "marketTotal": pick.get("overUnder"),
+           # prices on the main spread/total, for pricing legs the slip didn't (same-game parlays)
+           "marketSpreadOdds": {k: v for k, v in ((home, (pick.get("homeTeamOdds") or {}).get("spreadOdds")),
+                                                  (away, (pick.get("awayTeamOdds") or {}).get("spreadOdds"))) if k and v is not None},
+           "marketOverOdds": pick.get("overOdds"), "marketUnderOdds": pick.get("underOdds"),
            **_status(comp.get("status") or {})}
     if cache is not None:
         cache[key] = out

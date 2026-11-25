@@ -171,6 +171,12 @@ def upsert_leg(bet, player_id, fields, source, admin=False):
     return leg
 
 
+def needs_market_odds(bet, leg):
+    """The slip didn't price this leg on its own: it's inside a same-game group, or has no odds at all."""
+    grouped = any(leg["playerId"] in (g.get("playerIds") or []) for g in bet.get("sgpGroups") or [])
+    return leg.get("oddsSource") != "slip" and (grouped or leg.get("odds") is None)
+
+
 def floor_warning(bet, american):
     floor = bet.get("bettingFloor")
     if floor is None or american is None:
@@ -188,7 +194,7 @@ def lock(bet, slip_key=None, total_odds=None, leg_odds=None, sgp_groups=None):
     if leg_odds:
         for leg in bet["legs"]:
             if leg["playerId"] in leg_odds and leg_odds[leg["playerId"]] is not None:
-                leg["odds"] = leg_odds[leg["playerId"]]
+                leg["odds"], leg["oddsSource"] = leg_odds[leg["playerId"]], "slip"
                 db.put_leg(bet, leg)
     if slip_key:
         bet["slipKey"] = slip_key
