@@ -451,6 +451,8 @@ def run(bet_id, reason="scheduled"):
             db.put_leg(bet, leg)
             lines.append(f"❓ {name}: {leg['text']} — can't find it ({spec.get('reason', '')[:80]})")
             continue
+        if (leg.get("check") or {}).get("status") == "unresolved":
+            leg.pop("check")  # found it after all (e.g. a later run, or a fix): drop the stale data issue
         try:
             summ = games.summary(spec["league"], spec["eventId"], cache)
             # once per leg, before kickoff while the market is still up: price what the slip didn't
