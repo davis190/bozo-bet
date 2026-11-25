@@ -223,8 +223,13 @@ def extract_slip(image_bytes, fmt, legs, model=None, fallback=True):
             "toWin": {"type": ["number", "null"], "description": "Total payout (stake + profit) if shown"},
             "legs": {"type": "array", "items": {"type": "object", "properties": {
                 "playerId": {"type": ["string", "null"], "description": "id of the submitted leg this ticket line matches"},
-                "ticketText": {"type": "string"}, "odds": {"type": ["integer", "null"]},
+                "ticketText": {"type": "string"},
+                "odds": {"type": ["integer", "null"], "description": "This line's own price. null when it's part of a same-game group priced together"},
             }, "required": ["ticketText"]}},
+            "sgpGroups": {"type": "array", "description": "Same-game parlays inside the ticket: lines from one game priced with ONE combined number",
+                          "items": {"type": "object", "properties": {
+                              "playerIds": {"type": "array", "items": {"type": "string"}}, "odds": {"type": "integer"}},
+                              "required": ["playerIds", "odds"]}},
             "confidence": {"type": "number"},
         },
         "required": ["legs", "confidence"],
@@ -232,7 +237,10 @@ def extract_slip(image_bytes, fmt, legs, model=None, fallback=True):
     submitted = "\n".join(f"- id={l['playerId']}: {l['text']}" for l in legs)
     content = [
         {"image": {"format": fmt, "source": {"bytes": image_bytes}}},
-        {"text": f"Submitted legs:\n{submitted}\n\nRead the ticket. Match every ticket line to a submitted leg id and give its American odds."},
+        {"text": f"Submitted legs:\n{submitted}\n\nRead the ticket. Match every ticket line to a submitted leg id and give its American odds. "
+                 "Same-game parlays: when two or more lines from the same game share one price (often printed once, beside "
+                 "only one of them), that price is the group's combined odds. Put it in sgpGroups with those leg ids and leave "
+                 "each of those lines' odds null. Never copy a group price onto an individual line."},
     ]
     sys = BET_CONTEXT + "You read sportsbook tickets precisely. Never guess numbers you can't read; use null."
     result = structured(sys, content, schema, model=model, task="slip")

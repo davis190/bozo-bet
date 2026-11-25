@@ -280,7 +280,11 @@ function LegRow({ bet, p, leg, run, onChange, onResult }: { bet: Bet; p: Player;
   );
 }
 
-interface SlipResult { totalOdds?: number | null; wager?: number | null; toWin?: number | null; legs: { playerId?: string | null; ticketText: string; odds?: number | null }[]; confidence: number }
+interface SlipResult {
+  totalOdds?: number | null; wager?: number | null; toWin?: number | null; confidence: number;
+  legs: { playerId?: string | null; ticketText: string; odds?: number | null }[];
+  sgpGroups?: { playerIds: string[]; odds: number }[];
+}
 
 function SlipPanel({ bet, run, onChange }: { bet: Bet; run: ReturnType<typeof useToast>["run"]; onChange: () => Promise<void> }) {
   const { players } = useSession();
@@ -314,7 +318,7 @@ function SlipPanel({ bet, run, onChange }: { bet: Bet; run: ReturnType<typeof us
     const legOdds = Object.fromEntries((res?.legs ?? []).filter((l) => l.playerId && l.odds != null).map((l) => [l.playerId!, l.odds!]));
     await run(async () => {
       await post(`/admin/bets/${bet.id}/lock`, {
-        slipKey: key, legOdds, totalOdds: totals.totalOdds ? parseInt(totals.totalOdds, 10) : undefined,
+        slipKey: key, legOdds, sgpGroups: res ? res.sgpGroups ?? [] : undefined, totalOdds: totals.totalOdds ? parseInt(totals.totalOdds, 10) : undefined,
         wager: totals.wager ? Number(totals.wager) : undefined, toWin: totals.toWin ? Number(totals.toWin) : undefined,
       });
       await onChange();
@@ -323,20 +327,13 @@ function SlipPanel({ bet, run, onChange }: { bet: Bet; run: ReturnType<typeof us
 
   return (
     <Section title={bet.status === "LOCKED" ? "Slip (locked)" : "Upload the slip → lock"}>
-      <div className="card p-4 grid gap-3">
-        <label className="btn btn-ghost cursor-pointer">
+      <div className="card p-4 grid grid-cols-1 gap-3 min-w-0">
+        <label className="btn btn-ghost cursor-pointer w-full">
           📸 {busy ? "Reading…" : key ? "Replace photo" : "Upload slip photo"}
           <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
         </label>
-        {preview && <img src={preview} alt="Slip preview" className="rounded-xl max-h-72 object-contain bg-surface-2" />}
-        {res && (
-          <div className="text-sm grid gap-1.5">
-            <div className="text-xs text-muted">Confidence {(res.confidence * 100).toFixed(0)}%</div>
-            {res.legs.map((l, i) => (
-              <div key={i} className="flex justify-between gap-2"><span className="truncate">{l.playerId ? players[l.playerId]?.displayName : "❓ unmatched"}: {l.ticketText}</span><span className="font-mono">{fmtOdds(l.odds)}</span></div>
-            ))}
-          </div>
-        )}
+        {preview && <img src={preview} alt="Slip preview" className="rounded-xl w-full max-h-72 object-contain bg-surface-2" />}
+        {res && <SlipLegs res={res} players={players} />}
         <div className="grid grid-cols-3 gap-2">
           <Field label="Total odds"><input className="input font-mono" placeholder={String(bet.computedOdds ?? "")} value={totals.totalOdds} onChange={(e) => setTotals({ ...totals, totalOdds: e.target.value })} /></Field>
           <Field label="Wager"><input className="input" value={totals.wager} onChange={(e) => setTotals({ ...totals, wager: e.target.value })} /></Field>
@@ -345,6 +342,38 @@ function SlipPanel({ bet, run, onChange }: { bet: Bet; run: ReturnType<typeof us
         <button className="btn btn-primary" onClick={lock}>{bet.status === "LOCKED" ? "Update slip numbers" : "Lock legs 🔒"}</button>
       </div>
     </Section>
+  );
+}
+
+/** What the slip reader saw, one row per ticket line. Same-game groups are bracketed with their one combined price. */
+function SlipLegs({ res, players }: { res: SlipResult; players: Record<string, Player> }) {
+  const groupOf = (pid?: string | null) => (res.sgpGroups ?? []).findIndex((g) => !!pid && g.playerIds.includes(pid));
+  const seen = new Set<number>();
+  return (
+    <div className="grid gap-2 min-w-0">
+      <div className="text-xs text-muted">Read with {(res.confidence * 100).toFixed(0)}% confidence. Check it against the photo.</div>
+      {res.legs.map((l, i) => {
+        const g = groupOf(l.playerId);
+        const firstOfGroup = g >= 0 && !seen.has(g);
+        if (g >= 0) seen.add(g);
+        return (
+          <div key={i} className="min-w-0">
+            {firstOfGroup && (
+              <div className="text-[11px] uppercase tracking-wider text-muted font-semibold mt-1 mb-1">
+                Same-game parlay · <span className="font-mono normal-case text-ink-2">{fmtOdds(res.sgpGroups![g].odds)}</span>
+              </div>
+            )}
+            <div className={`flex items-start gap-3 rounded-xl bg-surface-2 p-2.5 ${g >= 0 ? "border-l-2" : ""}`} style={g >= 0 ? { borderColor: "var(--accent)" } : undefined}>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold">{l.playerId ? players[l.playerId]?.displayName : "❓ Unmatched"}</div>
+                <div className="text-sm text-ink-2 break-words leading-snug">{l.ticketText}</div>
+              </div>
+              <span className="font-mono text-sm shrink-0">{g >= 0 && l.odds == null ? "SGP" : fmtOdds(l.odds)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

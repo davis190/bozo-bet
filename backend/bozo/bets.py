@@ -181,8 +181,10 @@ def floor_warning(bet, american):
     return None
 
 
-def lock(bet, slip_key=None, total_odds=None, leg_odds=None):
+def lock(bet, slip_key=None, total_odds=None, leg_odds=None, sgp_groups=None):
     _require(bet, "OPEN", "LOCKED")
+    if sgp_groups is not None:  # the slip's same-game prices (boosts included) beat the product of leg odds
+        bet["sgpGroups"] = [g for g in sgp_groups if len(g.get("playerIds") or []) >= 2 and g.get("odds") is not None]
     if leg_odds:
         for leg in bet["legs"]:
             if leg["playerId"] in leg_odds and leg_odds[leg["playerId"]] is not None:

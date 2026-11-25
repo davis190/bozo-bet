@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta, timezone
 
 import boto3
@@ -62,7 +63,7 @@ TOOLS = [
                   "inputSchema": {"json": {"type": "object", "properties": {
                       "league": {"type": "string"}, "event_id": {"type": "string"}, "name": {"type": "string"}},
                       "required": ["league", "event_id"]}}}},
-    {"toolSpec": {"name": "find_player", "description": "Search every box score for a sport between two dates for a player name. Fuzzy: handles typos, nicknames-by-surname and first-name-only. Use this whenever a player is involved.",
+    {"toolSpec": {"name": "find_player", "description": "Search every game for a sport between two dates for a player name: box scores for games that started, team rosters for games that haven't (those hits have no stats yet). Fuzzy: handles typos, nicknames-by-surname and first-name-only. Use this whenever a player is involved.",
                   "inputSchema": {"json": {"type": "object", "properties": {
                       "sport": {"type": "string", "enum": list(games.LEAGUES)}, "date_from": {"type": "string"},
                       "date_to": {"type": "string"}, "name": {"type": "string"}}, "required": ["sport", "date_from", "date_to", "name"]}}}},
@@ -102,8 +103,18 @@ def _tool(name, args, cache):
         if (hi - lo).days > 11:
             return {"error": "date range too wide for a player search (max 11 days)"}
         hits = []
-        for g in games.find_games(args["sport"], lo, hi):
-            if g["state"] == "pre":
+        found = games.find_games(args["sport"], lo, hi)
+        pre = {(g["league"], t["id"]) for g in found if g["state"] == "pre" for t in g["teams"] if t.get("id")}
+        with ThreadPoolExecutor(8) as pool:  # warm the roster cache in parallel: up to 32 teams in an NFL week
+            list(pool.map(lambda lt: games.roster(*lt), pre))
+        for g in found:
+            if g["state"] == "pre":  # no box score before kickoff: look at both teams' rosters instead
+                for team in g["teams"]:
+                    for n in games.roster(g["league"], team.get("id")) if team.get("id") else []:
+                        score = _name_score(args["name"], n)
+                        if score >= 0.6:
+                            hits.append({"score": round(score, 2), "player": n, "team": team["abbr"], "league": g["league"],
+                                         "eventId": g["id"], "game": g["name"], "start": g["start"], "stats": "not started"})
                 continue
             s = games.summary(g["league"], g["id"], cache)
             for n, p in s["players"].items():

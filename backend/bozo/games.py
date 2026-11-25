@@ -50,7 +50,7 @@ def _status(s):
 def _event(league, e):
     c = e["competitions"][0]
     teams = [{
-        "abbr": x["team"].get("abbreviation"), "name": x["team"].get("displayName"), "short": x["team"].get("shortDisplayName"),
+        "id": x["team"].get("id"), "abbr": x["team"].get("abbreviation"), "name": x["team"].get("displayName"), "short": x["team"].get("shortDisplayName"),
         "home": x.get("homeAway") == "home", "score": int(x["score"]) if str(x.get("score", "")).isdigit() else None,
     } for x in c["competitors"]]
     return {"id": e["id"], "league": league, "name": e.get("shortName") or e.get("name"), "start": e.get("date"),
@@ -80,6 +80,21 @@ def find_games(sport, start, end, query=None):
     if query:
         q = query.lower()
         out = [g for g in out if any(q in (t[k] or "").lower() for t in g["teams"] for k in ("abbr", "name", "short"))]
+    return out
+
+
+def roster(league, team_id):
+    """Every player on a team's current roster (display names). Box scores are empty before kickoff; rosters aren't."""
+    try:
+        data = _get(f"{BASE}/{league}/teams/{team_id}/roster", ttl_key=f"roster:{league}:{team_id}")
+    except Exception:
+        log.exception("roster failed %s %s", league, team_id)
+        return []
+    out = []
+    for a in data.get("athletes") or []:  # football groups by unit ({position, items}); other sports are flat
+        for x in a.get("items", [a]):
+            if x.get("displayName") or x.get("fullName"):
+                out.append(x.get("displayName") or x["fullName"])
     return out
 
 

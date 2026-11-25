@@ -259,7 +259,7 @@ def admin_lock(req):
     b = req.body
     bet = _bundle(req.params["betId"])
     first = bet["status"] == "OPEN"
-    rules.lock(bet, b.get("slipKey"), b.get("totalOdds"), b.get("legOdds"))
+    rules.lock(bet, b.get("slipKey"), b.get("totalOdds"), b.get("legOdds"), b.get("sgpGroups"))
     if b.get("wager"):
         bet["wager"] = b["wager"]
     if b.get("toWin"):
