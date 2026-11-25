@@ -353,7 +353,7 @@ def evaluate(spec, s):
         me = teams.get(spec.get("team"))
         opp = next((t for a, t in teams.items() if a != spec.get("team")), None)
         if not me or not opp:
-            return {**live, "status": "IN_DOUBT", "detail": "Can't find the team in this game", "needsReview": True}
+            return {**live, "status": "UNKNOWN", "detail": "Can't find the team in this game", "needsReview": True}
         m = (me["score"] or 0) - (opp["score"] or 0) + (line if kind == "spread" else 0)
         live.update(value=m, detail=f"{clock} · {score}")
         if final:
@@ -370,7 +370,7 @@ def evaluate(spec, s):
         elif spec.get("team") in sc:
             v = sc[spec["team"]].get(stat, 0)
         else:
-            return {**live, "status": "IN_DOUBT", "detail": "Can't find the team in this game", "needsReview": True}
+            return {**live, "status": "UNKNOWN", "detail": "Can't find the team in this game", "needsReview": True}
         live["detail"] = f"{clock} · {score} · {v} {stat}s (line {line:g})"
     elif kind in ("game_total", "team_total"):
         if kind == "game_total":
@@ -378,7 +378,7 @@ def evaluate(spec, s):
         else:
             t = teams.get(spec.get("team"))
             if not t:
-                return {**live, "status": "IN_DOUBT", "detail": "Can't find the team in this game", "needsReview": True}
+                return {**live, "status": "UNKNOWN", "detail": "Can't find the team in this game", "needsReview": True}
             v = t["score"] or 0
         label = "pts" if sport_family in ("football", "basketball") else "runs" if sport_family == "baseball" else "goals"
         live["detail"] = f"{clock} · {score} · {v:g} {label} (line {line:g})"
@@ -386,7 +386,7 @@ def evaluate(spec, s):
         p = _find_player(s["players"], spec.get("player", ""))
         if p is None:
             if final:
-                return {**live, "status": "IN_DOUBT", "detail": f"{spec.get('player')} not in the final box score (DNP?)", "needsReview": True}
+                return {**live, "status": "UNKNOWN", "detail": f"{spec.get('player')} not in the final box score (DNP?)", "needsReview": True}
             v = 0
         else:
             v = sum(p.get(k) or 0 for k in spec.get("stats") or [])
@@ -408,7 +408,7 @@ def evaluate(spec, s):
 
 
 # ---------------------------------------------------------------- run + schedule
-ICON = {"WON": "✅", "LOST": "❌", "PUSH": "➖", "ON_PACE": "🟢", "IN_DOUBT": "🟡", "OFF_PACE": "🔴", "PENDING": "⏳"}
+ICON = {"WON": "✅", "LOST": "❌", "PUSH": "➖", "ON_PACE": "🟢", "IN_DOUBT": "🟡", "OFF_PACE": "🔴", "PENDING": "⏳", "UNKNOWN": "❓"}
 
 
 def _fmt(o):
@@ -445,7 +445,7 @@ def run(bet_id, reason="scheduled"):
                 spec = {"found": False, "reason": e.message}
             leg["track"] = spec
         if not spec.get("found"):
-            leg["live"] = {"status": "IN_DOUBT", "detail": f"Tracker couldn't find this one: {spec.get('reason', '')[:120]}",
+            leg["live"] = {"status": "UNKNOWN", "detail": f"Tracker couldn't find this one: {spec.get('reason', '')[:120]}",
                            "needsReview": True, "updatedAt": now_iso()}
             leg["check"] = {"status": "unresolved", "note": spec.get("reason", "")[:300], "at": now_iso()}
             db.put_leg(bet, leg)
@@ -466,7 +466,7 @@ def run(bet_id, reason="scheduled"):
                 leg["enrichment"] = enrich.derive({"sport": (leg.get("parsed") or {}).get("sport"), **spec}, summ, live)
         except Exception as e:
             log.exception("evaluate failed")
-            live = {"status": "IN_DOUBT", "detail": f"Data hiccup: {str(e)[:80]}", "updatedAt": now_iso()}
+            live = {"status": "UNKNOWN", "detail": f"Data hiccup: {str(e)[:80]}", "updatedAt": now_iso()}
         got = live.pop("result", None)
         leg["live"] = live
         if live.get("needsReview"):

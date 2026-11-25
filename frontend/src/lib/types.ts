@@ -1,6 +1,6 @@
 export type Role = "public" | "none" | "viewer" | "player" | "admin";
 export type Result = "W" | "L" | "P";
-export type LiveStatus = "PENDING" | "ON_PACE" | "WON" | "IN_DOUBT" | "OFF_PACE" | "LOST" | "PUSH";
+export type LiveStatus = "PENDING" | "ON_PACE" | "WON" | "IN_DOUBT" | "OFF_PACE" | "LOST" | "PUSH" | "UNKNOWN";
 
 export interface Player {
   id: string;
