@@ -197,7 +197,7 @@ export function BetDetail() {
         <span className="chip bg-surface-2">{bet.result === "W" ? "HIT 💰" : bet.result === "L" ? `Lost ${bet.record ?? ""}` : bet.status}</span>
         <span className="chip bg-surface-2 font-mono">{fmtOdds(bet.totalOdds ?? bet.computedOdds)}</span>
         {bet.wager != null && <span className="chip bg-surface-2">{fmtMoney(bet.wager)} → {fmtMoney(bet.toWin)}</span>}
-        {bet.bozoId && <span className="chip bg-surface-2">placed by {players[bet.bozoId]?.displayName}</span>}
+        {bet.bozoId && <span className="chip bg-surface-2">{bet.kind === "side" ? "paid by" : "placed by"} {players[bet.bozoId]?.displayName}</span>}
         {bet.reloadOf && <Link to={`/bets/${bet.reloadOf}`} className="chip bg-surface-2 text-accent">reload of earlier bet</Link>}
         {bet.reloadedInto && <Link to={`/bets/${bet.reloadedInto}`} className="chip bg-surface-2 text-accent">reloaded → next bet</Link>}
       </div>

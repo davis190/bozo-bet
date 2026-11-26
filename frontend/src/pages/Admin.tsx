@@ -141,16 +141,26 @@ function ReloadPanel({ bet, players, run, onDone }: { bet: Bet; players: Record<
   // Side or no-vote bet: nobody self-proclaims (no bozo / the bozo stays). Otherwise pick who took the L.
   const noTaker = bet.kind === "side" || !!bet.noVote;
   const [taker, setTaker] = useState<string | null>(null);
+  const [payer, setPayer] = useState("");
   const reloader = noTaker ? null : taker;
   const carry = legs.filter((l) => l.playerId !== reloader && rollsOver(l));
   const repick = legs.filter((l) => !carry.includes(l));
-  const ready = noTaker || !!taker;
-  const go = () => run(async () => { await post(`/admin/bets/${bet.id}/reload`, reloader ? { playerId: reloader } : {}); await onDone(); }, "Reloaded. Slack knows who's re-picking.");
+  const ready = bet.kind === "side" ? !!payer : noTaker || !!taker;
+  const go = () => run(async () => { await post(`/admin/bets/${bet.id}/reload`, reloader ? { playerId: reloader } : bet.kind === "side" ? { paidBy: payer } : {}); await onDone(); }, "Reloaded. Slack knows who's re-picking.");
   return (
     <div className="border-t border-[var(--border)] pt-3 grid gap-2">
       <div className="text-sm font-bold">🔁 Reload: an early leg lost, start a fresh parlay</div>
       {bet.kind === "side" ? (
-        <p className="text-xs text-muted">Opens a new side bet: "{(bet.title ?? "Side bet").replace(/ \(take (\d+)\)$/, "")} (take …)". Rolled-over legs only count once.</p>
+        <>
+          <p className="text-xs text-muted">Opens a new side bet: "{(bet.title ?? "Side bet").replace(/ \(take (\d+)\)$/, "")} (take …)". Rolled-over legs only count once.</p>
+          <label className="grid gap-1 text-xs">
+            <span className="font-bold">Who's paying for the reload?</span>
+            <select className="input !min-h-10" value={payer} onChange={(e) => setPayer(e.target.value)}>
+              <option value="">Pick someone…</option>
+              {Object.values(players).filter((p) => p.active).sort((a, b) => a.slot - b.slot).map((p) => <option key={p.id} value={p.id}>{p.displayName}{p.id === bet.bozoId ? " (paid for this one)" : ""}</option>)}
+            </select>
+          </label>
+        </>
       ) : bet.noVote ? (
         <p className="text-xs text-muted">No-vote bet: {name(bet.bozoId)} stays bozo, and the new bet is no-vote too.</p>
       ) : (
@@ -172,7 +182,7 @@ function ReloadPanel({ bet, players, run, onDone }: { bet: Bet; players: Record<
         </div>
       )}
       <button className="btn btn-ghost" disabled={!ready || !carry.length}
-        onClick={() => confirm(bet.kind === "side" ? "Reload this side bet?" : bet.noVote ? `Reload? ${name(bet.bozoId)} stays bozo.` : `${name(reloader!)} self-proclaims bozo and reloads?`) && go()}>
+        onClick={() => confirm(bet.kind === "side" ? `Reload this side bet? ${name(payer)} pays for it.` : bet.noVote ? `Reload? ${name(bet.bozoId)} stays bozo.` : `${name(reloader!)} self-proclaims bozo and reloads?`) && go()}>
         {!carry.length && ready ? "Every game has started: nothing to roll over" : "Reload"}
       </button>
     </div>
@@ -197,7 +207,7 @@ function BetEditor({ bet, players, run, onChange, onNew }: { bet: Bet; players: 
           <div className="grid grid-cols-3 gap-2">
             <Field label="Wager"><input className="input" value={meta.wager} onChange={(e) => setMeta({ ...meta, wager: e.target.value })} /></Field>
             <Field label="Floor"><input className="input font-mono" value={meta.bettingFloor} onChange={(e) => setMeta({ ...meta, bettingFloor: e.target.value })} /></Field>
-            <Field label="Bozo">
+            <Field label={bet.kind === "side" ? "Paid by" : "Bozo"}>
               <select className="input" value={meta.bozoId} onChange={(e) => setMeta({ ...meta, bozoId: e.target.value })}>
                 <option value="">—</option>
                 {active.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}

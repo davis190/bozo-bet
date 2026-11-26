@@ -281,11 +281,11 @@ def take_next(title):
     return f"{m[1]} (take {int(m[2]) + 1})" if m else f"{title or 'Side bet'} (take 2)"
 
 
-def reload(bet, player_id, wager, date):
+def reload(bet, player_id, wager, date, paid_by=None):
     """An early leg lost -> fire a new parlay instead of riding the rest. Legs whose games haven't started carry over
     (and can be edited); everyone whose leg already lost, won or is live picks a new one.
     Normal bet: player_id took the L and self-proclaims bozo. No-vote bet: there's no vote to skip, so the bozo stays.
-    Side bet: no bozo at all; the new one is "<title> (take N)".
+    Side bet: no bozo at all; the new one is "<title> (take N)", paid for by paid_by (stored as its bozoId, like any side bet).
     Carried legs only count on the new bet; a re-picker's old and new legs both count."""
     _require(bet, "LOCKED")
     legs = counted_legs(bet)
@@ -318,7 +318,7 @@ def reload(bet, player_id, wager, date):
     _touch(bet)
     _save_meta(bet)  # must be CLOSED before the new bet is created
 
-    new = create_bet("side", date, wager, title=take_next(bet.get("title"))) if side else create_bet("bozo", date, wager, bozo_id=bozo)
+    new = create_bet("side", date, wager, bozo_id=paid_by, title=take_next(bet.get("title"))) if side else create_bet("bozo", date, wager, bozo_id=bozo)
     new["reloadOf"] = bet["id"]
     if bet.get("noVote"):
         new["noVote"] = True  # same week, same deal

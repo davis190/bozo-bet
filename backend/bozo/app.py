@@ -303,7 +303,7 @@ def admin_settle(req):
 def admin_reload(req):
     old = _bundle(req.params["betId"])
     new = rules.reload(old, req.body.get("playerId"), req.body.get("wager") or db.get_settings()["defaultWager"],
-                       req.body.get("date") or today_ct())
+                       req.body.get("date") or today_ct(), paid_by=req.body.get("paidBy"))
     if old["kind"] == "side":
         slack.reloaded(old, new, _players())
     else:

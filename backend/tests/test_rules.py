@@ -486,8 +486,8 @@ def test_side_bets_reload_as_take_n_with_no_bozo(fake):
         rules.upsert_leg(bet, pid, {"text": pid, "odds": 100}, "app")
     rules.lock(bet)
     bet["legs"][0]["result"] = "L"
-    new = rules.reload(bet, None, 10, "2026-11-26")
-    assert new["kind"] == "side" and new["title"] == "ATD Parlay (take 3)" and not new.get("bozoId")
+    new = rules.reload(bet, None, 10, "2026-11-26", paid_by="p2")
+    assert new["kind"] == "side" and new["title"] == "ATD Parlay (take 3)" and new["bozoId"] == "p2"
     assert "nextBozoId" not in bet and bet["repick"] == ["p1"] and [l["playerId"] for l in new["legs"]] == ["p2"]
     # the carried leg counts once (on the new bet); the re-picker's lost leg still counts on the old one
     assert [l["playerId"] for l in rules.counted_legs(bet)] == ["p1"]
