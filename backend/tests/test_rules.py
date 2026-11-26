@@ -429,6 +429,10 @@ def test_tracker_rechecks_a_game_past_kickoff_that_still_reads_pre(monkeypatch):
     bet = {"legs": [leg("p04", "2026-11-26T01:00Z"), leg("p06", "2026-11-26T18:00Z")]}
     at, why = tracker._next_run(bet, {})
     assert at == now + timedelta(minutes=10) and "past kickoff" in why
+    monkeypatch.setattr(tracker.games, "utcnow", lambda: now + timedelta(minutes=31))
+    at, why = tracker._next_run({"legs": [leg("p04", "2026-11-26T01:00Z")]}, {})
+    assert at == now + timedelta(minutes=61) and "30+ min" in why
+    monkeypatch.setattr(tracker.games, "utcnow", lambda: now)
     bet = {"legs": [leg("p06", "2026-11-26T18:00Z")]}
     at, why = tracker._next_run(bet, {})
     assert at == datetime(2026, 11, 26, 18, 5, tzinfo=timezone.utc) and why == "waiting for kickoff"
