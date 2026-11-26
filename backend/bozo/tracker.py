@@ -533,7 +533,11 @@ def _next_run(bet, settings):
         return now + timedelta(minutes=mins), f"games live — every {mins} min"
     pending = [l for l in legs if (l.get("live") or {}).get("state") == "pre"]
     if pending:
-        upcoming = [s for s in (games.parse_iso(l["live"].get("start")) for l in pending) if s and s > now]
+        starts = [s for s in (games.parse_iso(l["live"].get("start")) for l in pending) if s]
+        if any(s <= now for s in starts):
+            # Kickoff time passed but ESPN hasn't flipped the game live yet (or it's delayed): look again soon
+            return now + timedelta(minutes=10), "past kickoff, not live yet — checking every 10 min"
+        upcoming = [s for s in starts if s > now]
         at = min(upcoming) + timedelta(minutes=5) if upcoming else now + timedelta(hours=1)
         return max(at, now + timedelta(minutes=2)), "waiting for kickoff"
     if legs:

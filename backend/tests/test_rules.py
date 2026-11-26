@@ -417,3 +417,18 @@ def test_only_unpriced_legs_need_market_odds(fake):
     assert not rules.needs_market_odds(bet, legs["p1"])  # slip printed its own price
     assert rules.needs_market_odds(bet, legs["p2"])  # inside the SGP
     assert rules.needs_market_odds(bet, legs["p3"])  # no odds at all
+
+
+def test_tracker_rechecks_a_game_past_kickoff_that_still_reads_pre(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from bozo import tracker
+    now = datetime(2026, 11, 26, 1, 5, tzinfo=timezone.utc)
+    monkeypatch.setattr(tracker.games, "utcnow", lambda: now)
+    leg = lambda pid, start: {"playerId": pid, "text": "x", "live": {"state": "pre", "status": "PENDING", "start": start}}
+    bet = {"legs": [leg("p04", "2026-11-26T01:00Z"), leg("p06", "2026-11-26T18:00Z")]}
+    at, why = tracker._next_run(bet, {})
+    assert at == now + timedelta(minutes=10) and "past kickoff" in why
+    bet = {"legs": [leg("p06", "2026-11-26T18:00Z")]}
+    at, why = tracker._next_run(bet, {})
+    assert at == datetime(2026, 11, 26, 18, 5, tzinfo=timezone.utc) and why == "waiting for kickoff"
