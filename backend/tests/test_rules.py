@@ -184,6 +184,10 @@ def test_tracker_evaluate_spreads_totals_props():
     # live moneyline up 18 at the half is on pace; down 3 is a sweat
     assert evaluate({"kind": "moneyline", "team": "A"}, _game("in", {"A": 28, "B": 10}, period=2, clock="0:00"))["status"] == "ON_PACE"
     assert evaluate({"kind": "moneyline", "team": "A"}, _game("in", {"A": 17, "B": 20}, period=4, clock="2:00"))["status"] == "IN_DOUBT"
+    # a -8.5 favorite at 0-0 isn't off pace; down 8.5 late is
+    assert evaluate({"kind": "spread", "team": "A", "line": -8.5}, _game("in", {"A": 0, "B": 0}, period=1, clock="14:00"))["status"] == "EARLY"
+    assert evaluate({"kind": "spread", "team": "A", "line": -8.5}, _game("in", {"A": 7, "B": 7}, period=1, clock="2:00"))["status"] == "IN_DOUBT"
+    assert evaluate({"kind": "spread", "team": "A", "line": -8.5}, _game("in", {"A": 14, "B": 14}, period=4, clock="5:00"))["status"] == "OFF_PACE"
 
 
 def test_tracker_player_name_matching():
@@ -442,3 +446,17 @@ def test_tracker_rechecks_a_game_past_kickoff_that_still_reads_pre(monkeypatch):
     bet = {"legs": [leg("p06", "2026-11-26T18:00Z")]}
     at, why = tracker._next_run(bet, {})
     assert at == datetime(2026, 11, 26, 18, 5, tzinfo=timezone.utc) and why == "waiting for kickoff"
+
+
+def test_tracker_pace_judges_what_is_still_needed_against_time_left():
+    from bozo.tracker import pace
+    assert pace(0, 0.5, 0.05) == "EARLY"  # a minute in, nothing yet: too early to call
+    assert pace(0, 0.5, 0.15) == "IN_DOUBT"  # anytime TD, 0 in the 1st: needs 1 in 85% of the game
+    assert pace(0, 0.5, 0.9) == "OFF_PACE"
+    assert pace(1, 1.5, 0.5) == "ON_PACE"  # 1 of 2 pass TDs at the half
+    assert pace(0, 1.5, 0.5) == "OFF_PACE"
+    assert pace(10, 47.5, 0.25) == "IN_DOUBT"  # 7-3 after one quarter on a 47.5 total
+    assert pace(30, 47.5, 0.5) == "ON_PACE"
+    assert pace(24, 47.5, 0.5, over=False) == "IN_DOUBT"  # under 47.5 at 24 at the half: coin flip
+    assert pace(10, 47.5, 0.5, over=False) == "ON_PACE"
+    assert pace(40, 47.5, 0.6, over=False) == "OFF_PACE"

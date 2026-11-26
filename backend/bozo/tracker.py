@@ -12,6 +12,7 @@ Every run is summarized to the Slack logs channel.
 import difflib
 import json
 import logging
+import math
 import os
 import re
 import unicodedata
@@ -359,8 +360,10 @@ def evaluate(spec, s):
         if final:
             result = "W" if m > 0 else "L" if m < 0 or spec.get("drawLoses") else "P"
             return {**live, "status": {"W": "WON", "L": "LOST", "P": "PUSH"}[result], "result": result}
-        thr = ONE_SCORE.get(sport_family, 6)
-        status = "ON_PACE" if m > thr else "OFF_PACE" if m < -thr else "IN_DOUBT"
+        # A deficit means less the more time is left: 8.5 down at kickoff is a sweat, 8.5 down late is off pace
+        thr = ONE_SCORE.get(sport_family, 6) * max(1, 3 * (1 - f))
+        scoreless = not any(t["score"] for t in s["teams"])
+        status = "EARLY" if f < EARLY_FRACTION and scoreless else "ON_PACE" if m > thr else "OFF_PACE" if m < -thr else "IN_DOUBT"
         return {**live, "status": status}
 
     if kind in ("team_stat", "game_stat"):
@@ -399,16 +402,32 @@ def evaluate(spec, s):
         return {**live, "status": {"W": "WON", "L": "LOST", "P": "PUSH"}[result], "result": result}
     if v > line:  # an over that's cleared can't un-clear; an under that's blown is dead
         return {**live, "status": "WON" if over else "LOST", "result": "W" if over else "L"}
-    projected = v / max(f, 0.15)
+    return {**live, "status": pace(v, line, f, over)}
+
+
+EARLY_FRACTION = 0.10  # before this, with nothing on the board yet, it's too early to call
+OFF_PACE_RATIO = 1.6  # needs 1.6x the line's own rate the rest of the way: roughly a <25% shot for TDs/HRs/goals
+
+
+def pace(v, line, f, over=True):
+    """Judge a live over/under by what it still needs against the time left, measured against the rate the line
+    itself implies. Straight-line projection doesn't work for rare stats (TDs, HRs, goals): they sit at 0 and then
+    jump, so 0 TDs a minute in projected to 0 and read 'Off pace' from the first snap.
+    ratio <= 1: ahead of where the line expects (On pace); <= OFF_PACE_RATIO: behind but doable (Sweating)."""
+    if f < EARLY_FRACTION and v == 0:
+        return "EARLY"
+    left = max(1 - f, 0.02)
     if over:
-        status = "ON_PACE" if projected >= line * 1.1 else "IN_DOUBT" if projected >= line * 0.85 else "OFF_PACE"
+        target = math.floor(line) + 1  # what it takes to clear: 0.5 -> 1, 47.5 -> 48, 2 -> 3
+        ratio = (target - v) / target / left
     else:
-        status = "ON_PACE" if projected <= line * 0.9 else "IN_DOUBT" if projected <= line * 1.1 else "OFF_PACE"
-    return {**live, "status": status}
+        room = line - v  # how much more can happen before it's blown
+        ratio = line * left / room if room > 0 else float("inf")
+    return "ON_PACE" if ratio <= 1 else "IN_DOUBT" if ratio <= OFF_PACE_RATIO else "OFF_PACE"
 
 
 # ---------------------------------------------------------------- run + schedule
-ICON = {"WON": "✅", "LOST": "❌", "PUSH": "➖", "ON_PACE": "🟢", "IN_DOUBT": "🟡", "OFF_PACE": "🔴", "PENDING": "⏳", "UNKNOWN": "❓"}
+ICON = {"WON": "✅", "LOST": "❌", "PUSH": "➖", "ON_PACE": "🟢", "IN_DOUBT": "🟡", "OFF_PACE": "🔴", "PENDING": "⏳", "UNKNOWN": "❓", "EARLY": "⚪"}
 
 
 def _fmt(o):

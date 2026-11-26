@@ -46,6 +46,7 @@ const STATUS: Record<LiveStatus | Result, { label: string; icon: string; color: 
   PUSH: { label: "Push", icon: "=", color: "var(--muted)", solid: true },
   PENDING: { label: "Not started", icon: "·", color: "var(--muted)", solid: false },
   UNKNOWN: { label: "Can't track", icon: "?", color: "var(--muted)", solid: false },
+  EARLY: { label: "Early", icon: "•", color: "var(--muted)", solid: false },
 };
 
 /** On pace (outlined) vs won (solid) — color never carries meaning alone. */
