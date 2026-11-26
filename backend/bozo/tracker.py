@@ -202,6 +202,69 @@ def market_price(spec, s):
     return None
 
 
+# How far final margins / totals typically land from the market's number (std dev, points). Used to price an alt
+# spread or total off the main line when the market doesn't list it.
+SPREAD_SD = {"football/nfl": (13.5, 10.0), "football/college-football": (15.0, 14.0),
+             "basketball/nba": (12.0, 18.0), "basketball/mens-college-basketball": (11.0, 15.0)}
+
+
+def _american(p):
+    return int(round(-100 * p / (1 - p))) if p >= 0.5 else int(round(100 * (1 - p) / p))
+
+
+def estimate_price(spec, s):
+    """An alt spread/total the market doesn't list: shift the main line's chance along a normal curve, keeping the
+    market's juice. Football/basketball only; None otherwise. Clearly an estimate, and the slip still wins."""
+    sds = SPREAD_SD.get(s.get("league"))
+    kind, line, team = spec.get("kind"), spec.get("line"), spec.get("team")
+    if not sds or line is None:
+        return None
+    phi = lambda z: 0.5 * (1 + math.erf(z / math.sqrt(2)))
+    if kind == "spread" and s.get("marketSpread") is not None and s.get("favorite"):
+        main = -abs(s["marketSpread"]) if team == s["favorite"] else abs(s["marketSpread"])
+        juice = (s.get("marketSpreadOdds") or {}).get(team)
+        p = 1 - phi((-float(line) + main) / sds[0])  # margin ~ N(-main, sd); covers when margin > -line
+    elif kind == "game_total" and s.get("marketTotal") is not None:
+        over = spec.get("direction", "over") == "over"
+        juice = s.get("marketOverOdds") if over else s.get("marketUnderOdds")
+        p = 1 - phi((float(line) - s["marketTotal"]) / sds[1])
+        p = p if over else 1 - p
+    else:
+        return None
+    p *= odds.implied_prob(juice) / 0.5 if juice is not None else 1.0476  # keep the book's vig (-110 if unknown)
+    return _american(min(max(p, 0.02), 0.98))
+
+
+def fill_odds(bet_id, player_id):
+    """A leg came in without odds: find its game and fill them from the market (main line) or an estimate (alt
+    spread/total) so it doesn't sit empty. Props have no free price source, so they stay empty for the admin."""
+    bet = db.get_bet_bundle(bet_id)
+    leg = next((l for l in (bet or {}).get("legs", []) if l["playerId"] == player_id), None)
+    if not leg or leg.get("odds") is not None or bet["status"] not in ("OPEN", "LOCKED"):
+        return {"skipped": "nothing to fill"}
+    try:
+        spec = leg.get("track") if (leg.get("track") or {}).get("found") else {**resolve(leg, bet["date"], {}), "resolvedAt": now_iso()}
+    except ApiError as e:
+        return {"skipped": e.message}
+    leg["track"] = spec
+    if not spec.get("found"):
+        db.put_leg(bet, leg)
+        return {"skipped": "couldn't find the game"}
+    summ = games.summary(spec["league"], spec["eventId"], {})
+    if summ["state"] != "pre":
+        db.put_leg(bet, leg)
+        return {"skipped": "game already started"}
+    m, source = market_price(spec, summ), "market"
+    if m is None:
+        m, source = estimate_price(spec, summ), "estimate"
+    if m is None:
+        db.put_leg(bet, leg)
+        return {"skipped": "no market price (prop?)"}
+    leg.update(odds=int(round(m)), oddsSource=source, oddsCheck={"entered": None, "market": int(round(m)), "action": source, "at": now_iso()})
+    db.put_leg(bet, leg)
+    return {"filled": leg["odds"], "source": source}
+
+
 ODDS_TOLERANCE = 0.03  # entered odds within 3 points of implied chance of the market are close enough to keep
 
 
@@ -593,6 +656,8 @@ def _schedule(bet, at, tracker):
 
 def handler(event, context):
     try:
+        if event.get("fillOdds"):
+            return fill_odds(event["betId"], event["fillOdds"])
         return run(event["betId"], event.get("reason", "scheduled"))
     except Exception as e:
         log.exception("tracker crashed")

@@ -35,6 +35,11 @@ export function LegCard({ leg, player, isBozo, isMe, onClick }: { leg: Leg; play
         </div>
         <div className="mt-1 font-semibold leading-snug break-words">
           {leg.text} <Odds o={leg.odds} className="text-sm" />
+          {(leg.oddsSource === "market" || leg.oddsSource === "estimate") && (
+            <span className="chip ml-1 bg-surface-2 text-muted" title={leg.oddsSource === "market" ? "No odds entered: filled from the market line" : "No odds entered: estimated from the market's main line"}>
+              {leg.oddsSource === "market" ? "market" : "est."}
+            </span>
+          )}
           {(leg.sgp || leg.sgpOdds != null) && <span className="chip ml-1 bg-surface-2 text-muted">SGP{leg.sgpOdds != null && ` ${fmtOdds(leg.sgpOdds)}`}</span>}
         </div>
         {leg.live?.detail && <div className="text-xs text-ink-2 mt-1">{leg.live.detail}</div>}

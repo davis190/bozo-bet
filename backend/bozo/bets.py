@@ -155,6 +155,14 @@ def upsert_leg(bet, player_id, fields, source, admin=False):
     if not admin:  # admins can correct anything, any time
         _require(bet, "OPEN")
     leg = next((l for l in bet["legs"] if l["playerId"] == player_id), None) or {"playerId": player_id}
+    if "text" in fields and fields["text"] != leg.get("text"):
+        # a different bet: the old game match and any looked-up odds were for the old words
+        for k in ("track", "oddsCheck", "check"):
+            leg.pop(k, None)
+        if leg.pop("oddsSource", None) in ("market", "estimate") and "odds" not in fields:
+            leg.pop("odds", None)
+    elif "odds" in fields and fields["odds"] != leg.get("odds"):
+        leg.pop("oddsSource", None)  # someone typed real odds over the looked-up ones
     allowed = {"text", "odds", "sgp", "parsed", "result", "live", "notes", "enrichment"} if admin else {"text", "odds", "sgp", "parsed"}
     for k, v in fields.items():
         if k in allowed:
@@ -172,9 +180,10 @@ def upsert_leg(bet, player_id, fields, source, admin=False):
 
 
 def needs_market_odds(bet, leg):
-    """The slip didn't price this leg on its own: it's inside a same-game group, or has no odds at all."""
+    """The slip didn't price this leg on its own: it's inside a same-game group, has no odds, or its odds were
+    looked up before lock (the market moves)."""
     grouped = any(leg["playerId"] in (g.get("playerIds") or []) for g in bet.get("sgpGroups") or [])
-    return leg.get("oddsSource") != "slip" and (grouped or leg.get("odds") is None)
+    return leg.get("oddsSource") != "slip" and (grouped or leg.get("odds") is None or leg.get("oddsSource") in ("market", "estimate"))
 
 
 def floor_warning(bet, american):

@@ -44,6 +44,8 @@ export interface Leg {
   playerId: string;
   text: string;
   odds?: number;
+  /** Where the odds came from when nobody typed them: the slip, the market's main line, or an alt-line estimate. */
+  oddsSource?: "slip" | "market" | "estimate";
   sgp?: boolean;
   sgpOdds?: number;
   result?: Result;

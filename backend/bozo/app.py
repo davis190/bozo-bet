@@ -131,6 +131,12 @@ def get_stats(req):
 
 # ---------------- player actions ----------------
 def _notify_leg(bet, leg, was_complete):
+    if leg.get("odds") is None:
+        try:  # look the price up in the background so the leg doesn't sit there without odds
+            boto3.client("lambda").invoke(FunctionName="bozo-bet-tracker", InvocationType="Event",
+                                          Payload=json.dumps({"betId": bet["id"], "fillOdds": leg["playerId"]}).encode())
+        except Exception:
+            log.exception("odds lookup kick failed")
     players = _players()
     try:
         active = [p for p in players.values() if p.get("active")]

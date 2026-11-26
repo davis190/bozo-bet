@@ -492,3 +492,29 @@ def test_side_bets_reload_as_take_n_with_no_bozo(fake):
     # the carried leg counts once (on the new bet); the re-picker's lost leg still counts on the old one
     assert [l["playerId"] for l in rules.counted_legs(bet)] == ["p1"]
     assert rules.take_next("Christmas Bets") == "Christmas Bets (take 2)"
+
+
+def test_estimate_prices_alt_lines_off_the_main_one():
+    from bozo.tracker import estimate_price
+    s = {"league": "football/nfl", "marketSpread": 7.5, "favorite": "WSH", "marketSpreadOdds": {"WSH": -110, "ARI": -110},
+         "marketTotal": 37.5, "marketOverOdds": -110, "marketUnderOdds": -110}
+    assert estimate_price({"kind": "spread", "team": "WSH", "line": -7.5}, s) == -110  # main line: the market's own price
+    assert -140 < estimate_price({"kind": "spread", "team": "WSH", "line": -7}, s) < -110  # half point better: pricier
+    assert estimate_price({"kind": "spread", "team": "ARI", "line": 10.5}, s) < -110
+    assert estimate_price({"kind": "game_total", "line": 35.5, "direction": "over"}, s) < -110
+    assert estimate_price({"kind": "game_total", "line": 35.5, "direction": "under"}, s) > 100
+    assert estimate_price({"kind": "player_stat", "line": 1.5}, s) is None
+    assert estimate_price({"kind": "spread", "team": "X", "line": 1.5}, {**s, "league": "soccer/eng.1"}) is None
+
+
+def test_editing_a_leg_drops_looked_up_odds(fake):
+    bet = rules.create_bet("bozo", "2026-11-26", 10, bozo_id="p1")
+    rules.upsert_leg(bet, "p2", {"text": "WSH -7"}, "app")
+    leg = bet["legs"][0]
+    leg.update(odds=-125, oddsSource="estimate", track={"found": True})
+    leg = rules.upsert_leg(bet, "p2", {"text": "WSH -3"}, "app")
+    assert leg.get("odds") is None and "track" not in leg and "oddsSource" not in leg
+    leg.update(odds=-110, oddsSource="market")
+    leg = rules.upsert_leg(bet, "p2", {"odds": -115}, "app")
+    assert leg["odds"] == -115 and "oddsSource" not in leg
+    assert rules.needs_market_odds(bet, {**leg, "oddsSource": "market"})
