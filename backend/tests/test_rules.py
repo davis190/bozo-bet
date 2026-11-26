@@ -134,6 +134,24 @@ def test_reload_carries_legs_and_marks_reload_bozo(fake):
     assert [l["playerId"] for l in rules.counted_legs(bet)] == ["p1"]  # carried legs don't double count
 
 
+def test_reload_only_rolls_unstarted_legs_and_no_vote_keeps_the_bozo(fake):
+    bet = _bet_with([("p1", "won already", -110), ("p2", "lost already", 100), ("p3", "live", 100), ("p4", "thursday", 100)])
+    bet.update(noVote=True, bozoId="p9")
+    legs = {l["playerId"]: l for l in bet["legs"]}
+    legs["p1"]["result"], legs["p2"]["result"] = "W", "L"
+    legs["p3"]["live"], legs["p4"]["live"] = {"state": "in"}, {"state": "pre"}
+    new = rules.reload(bet, None, 10, "2026-11-26")
+    assert bet["nextBozoId"] == "p9" and bet["nextBozoMethod"] == "kept" and bet["outcome"] == "reload"
+    assert new["bozoId"] == "p9" and new["noVote"] and [l["playerId"] for l in new["legs"]] == ["p4"]
+    assert bet["repick"] == ["p1", "p2", "p3"] and bet["record"] == "1-1-0"
+    # every game started: nothing to roll over, so no reload
+    fake.bets.clear()
+    bet2 = _bet_with([("p1", "a", 100), ("p2", "b", 100)])
+    bet2["legs"][1]["result"] = "W"
+    with pytest.raises(ApiError):
+        rules.reload(bet2, "p1", 10, "2026-11-26")
+
+
 def test_floor_warning():
     bet = {"bettingFloor": -115}
     assert rules.floor_warning(bet, -200)

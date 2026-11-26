@@ -206,15 +206,17 @@ def new_bozo(bet, players):
     if bet.get("nextBozoMethod") == "stays":
         return parlay_hit(bet, players)
     who = _name(players, bet["nextBozoId"])
+    if bet.get("outcome") == "reload":
+        repick = ", ".join(_name(players, pid) for pid in bet.get("repick") or [])
+        carried = ", ".join(_name(players, l["playerId"]) for l in bet.get("legs", []) if l.get("carriedOver"))
+        head = f"*{who} reloaded.* Self-proclaimed bozo." if bet.get("nextBozoMethod") == "reload" else f"*Reloaded* ({bet.get('record', '')}). No vote on this one - *{who}* stays bozo."
+        main(f":repeat: {head}\n:arrow_right: Rolling over: {carried or 'nobody'}\n:pencil2: Pick a new leg: *{repick or 'nobody'}*\n<{SITE}|Bozo Bet>")
+        return
     if bet.get("nextBozoMethod") == "kept":
         main(f":shrug: *Side bet missed* ({bet.get('record', '')}). No vote on this one - *{who}* stays bozo." + _next_open(bet))
         return
-    if bet.get("nextBozoMethod") == "reload":
-        text = f":repeat: *{who} reloaded.* Self-proclaimed bozo. Everyone else's legs carried over - change yours if you want: <{SITE}|Bozo Bet>"
-    else:
-        leg = next((l for l in bet.get("legs", []) if l["playerId"] == bet["nextBozoId"]), {})
-        text = f":clown_face: *{who}* is the bozo - the only leg that lost ({leg.get('text', '')}). No vote needed." + _next_open(bet)
-    main(text)
+    leg = next((l for l in bet.get("legs", []) if l["playerId"] == bet["nextBozoId"]), {})
+    main(f":clown_face: *{who}* is the bozo - the only leg that lost ({leg.get('text', '')}). No vote needed." + _next_open(bet))
 
 
 # ---------------- #ops ----------------

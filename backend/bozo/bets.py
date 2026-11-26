@@ -270,36 +270,55 @@ def open_next(bet):
     return new
 
 
+def rolls_over(leg):
+    """A leg rolls into a reload only if its game hasn't started: a decided or live leg can't be re-bet at its odds."""
+    return not leg.get("result") and (leg.get("live") or {}).get("state", "pre") == "pre"
+
+
 def reload(bet, player_id, wager, date):
-    """Thursday leg lost -> that player self-proclaims bozo and fires a new parlay.
-    Everyone else's legs carry over (and can be edited) on the new bet."""
+    """An early leg lost -> fire a new parlay instead of riding the rest. Legs whose games haven't started carry over
+    (and can be edited); everyone whose leg already lost, won or is live picks a new one.
+    Normal bet: player_id took the L and self-proclaims bozo. No-vote bet: there's no vote to skip, so the bozo stays."""
     if bet["kind"] != "bozo":
         raise ApiError(400, "Only bozo bets reload")
     _require(bet, "LOCKED")
-    mine = next((l for l in bet["legs"] if l["playerId"] == player_id), None)
-    if not mine:
-        raise ApiError(400, "That player has no leg on this bet")
-    mine["result"] = "L"
-    db.put_leg(bet, mine)
-    for leg in bet["legs"]:
-        if leg["playerId"] != player_id:
-            leg["carriedOver"] = True
-            db.put_leg(bet, leg)
-    bet.update(status="CLOSED", result="L", outcome="reload", nextBozoId=player_id,
-               nextBozoMethod="reload", reloadPlayerId=player_id, settledAt=now_iso(), record="0-1-0")
+    legs = counted_legs(bet)
+    if bet.get("noVote"):
+        player_id, bozo, how = None, bet.get("bozoId"), "kept"
+    else:
+        mine = next((l for l in legs if l["playerId"] == player_id), None)
+        if not mine:
+            raise ApiError(400, "That player has no leg on this bet")
+        if mine.get("result") == "W":
+            raise ApiError(400, "That leg already won")
+        mine["result"] = "L"
+        db.put_leg(bet, mine)
+        bozo, how = player_id, "reload"
+    carry = [l for l in legs if l["playerId"] != player_id and rolls_over(l)]
+    if not carry:
+        raise ApiError(400, "Every game has started: nothing left to roll over")
+    for leg in carry:
+        leg["carriedOver"] = True
+        db.put_leg(bet, leg)
+    done = [l for l in counted_legs(bet) if l.get("result")]
+    rec = {r: sum(l["result"] == r for l in done) for r in "WLP"}
+    bet.update(status="CLOSED", result="L", outcome="reload", nextBozoId=bozo, nextBozoMethod=how,
+               reloadPlayerId=player_id, settledAt=now_iso(), record=f"{rec['W']}-{rec['L']}-{rec['P']}",
+               repick=[l["playerId"] for l in legs if l not in carry])
     _touch(bet)
     _save_meta(bet)  # must be CLOSED before the new bet is created
 
-    new = create_bet("bozo", date, wager, bozo_id=player_id)
+    new = create_bet("bozo", date, wager, bozo_id=bozo)
     new["reloadOf"] = bet["id"]
+    if bet.get("noVote"):
+        new["noVote"] = True  # same week, same deal
     bet["reloadedInto"] = new["id"]
     _save_meta(bet)
     _save_meta(new)
-    for leg in bet["legs"]:
-        if leg["playerId"] != player_id:
-            carried = {k: leg[k] for k in ("playerId", "text", "odds", "sgp", "parsed") if k in leg}
-            carried["source"] = "carried"
-            upsert_leg(new, leg["playerId"], carried, "carried", admin=True)
+    for leg in carry:
+        carried = {k: leg[k] for k in ("playerId", "text", "odds", "parsed") if k in leg}
+        carried["source"] = "carried"
+        upsert_leg(new, leg["playerId"], carried, "carried", admin=True)
     return new
 
 

@@ -302,7 +302,7 @@ def admin_settle(req):
 @route("POST", "/api/admin/bets/{betId}/reload", "admin")
 def admin_reload(req):
     old = _bundle(req.params["betId"])
-    new = rules.reload(old, req.body["playerId"], req.body.get("wager") or db.get_settings()["defaultWager"],
+    new = rules.reload(old, req.body.get("playerId"), req.body.get("wager") or db.get_settings()["defaultWager"],
                        req.body.get("date") or today_ct())
     slack.new_bozo(old, _players())
     return _present(req, new)
