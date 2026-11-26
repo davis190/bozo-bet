@@ -275,15 +275,24 @@ def rolls_over(leg):
     return not leg.get("result") and (leg.get("live") or {}).get("state", "pre") == "pre"
 
 
+def take_next(title):
+    """'ATD Parlay' -> 'ATD Parlay (take 2)' -> 'ATD Parlay (take 3)'."""
+    m = re.match(r"^(.*) \(take (\d+)\)$", title or "")
+    return f"{m[1]} (take {int(m[2]) + 1})" if m else f"{title or 'Side bet'} (take 2)"
+
+
 def reload(bet, player_id, wager, date):
     """An early leg lost -> fire a new parlay instead of riding the rest. Legs whose games haven't started carry over
     (and can be edited); everyone whose leg already lost, won or is live picks a new one.
-    Normal bet: player_id took the L and self-proclaims bozo. No-vote bet: there's no vote to skip, so the bozo stays."""
-    if bet["kind"] != "bozo":
-        raise ApiError(400, "Only bozo bets reload")
+    Normal bet: player_id took the L and self-proclaims bozo. No-vote bet: there's no vote to skip, so the bozo stays.
+    Side bet: no bozo at all; the new one is "<title> (take N)".
+    Carried legs only count on the new bet; a re-picker's old and new legs both count."""
     _require(bet, "LOCKED")
     legs = counted_legs(bet)
-    if bet.get("noVote"):
+    side = bet["kind"] == "side"
+    if side:
+        player_id, bozo, how = None, None, None
+    elif bet.get("noVote"):
         player_id, bozo, how = None, bet.get("bozoId"), "kept"
     else:
         mine = next((l for l in legs if l["playerId"] == player_id), None)
@@ -302,13 +311,14 @@ def reload(bet, player_id, wager, date):
         db.put_leg(bet, leg)
     done = [l for l in counted_legs(bet) if l.get("result")]
     rec = {r: sum(l["result"] == r for l in done) for r in "WLP"}
-    bet.update(status="CLOSED", result="L", outcome="reload", nextBozoId=bozo, nextBozoMethod=how,
-               reloadPlayerId=player_id, settledAt=now_iso(), record=f"{rec['W']}-{rec['L']}-{rec['P']}",
+    bet.update(status="CLOSED", result="L", outcome="reload", settledAt=now_iso(), record=f"{rec['W']}-{rec['L']}-{rec['P']}",
                repick=[l["playerId"] for l in legs if l not in carry])
+    if not side:
+        bet.update(nextBozoId=bozo, nextBozoMethod=how, reloadPlayerId=player_id)
     _touch(bet)
     _save_meta(bet)  # must be CLOSED before the new bet is created
 
-    new = create_bet("bozo", date, wager, bozo_id=bozo)
+    new = create_bet("side", date, wager, title=take_next(bet.get("title"))) if side else create_bet("bozo", date, wager, bozo_id=bozo)
     new["reloadOf"] = bet["id"]
     if bet.get("noVote"):
         new["noVote"] = True  # same week, same deal

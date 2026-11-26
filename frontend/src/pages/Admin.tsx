@@ -138,17 +138,20 @@ const rollsOver = (l: Leg) => !l.result && (l.live?.state ?? "pre") === "pre";
 function ReloadPanel({ bet, players, run, onDone }: { bet: Bet; players: Record<string, Player>; run: ReturnType<typeof useToast>["run"]; onDone: () => Promise<void> }) {
   const legs = bet.legs.filter((l) => !l.carriedOver);
   const name = (id?: string) => (id ? players[id]?.displayName ?? id : "");
-  // No-vote bet: nobody self-proclaims, the bozo stays. Otherwise pick who took the L.
+  // Side or no-vote bet: nobody self-proclaims (no bozo / the bozo stays). Otherwise pick who took the L.
+  const noTaker = bet.kind === "side" || !!bet.noVote;
   const [taker, setTaker] = useState<string | null>(null);
-  const reloader = bet.noVote ? null : taker;
+  const reloader = noTaker ? null : taker;
   const carry = legs.filter((l) => l.playerId !== reloader && rollsOver(l));
   const repick = legs.filter((l) => !carry.includes(l));
-  const ready = bet.noVote || !!taker;
+  const ready = noTaker || !!taker;
   const go = () => run(async () => { await post(`/admin/bets/${bet.id}/reload`, reloader ? { playerId: reloader } : {}); await onDone(); }, "Reloaded. Slack knows who's re-picking.");
   return (
     <div className="border-t border-[var(--border)] pt-3 grid gap-2">
       <div className="text-sm font-bold">🔁 Reload: an early leg lost, start a fresh parlay</div>
-      {bet.noVote ? (
+      {bet.kind === "side" ? (
+        <p className="text-xs text-muted">Opens a new side bet: "{(bet.title ?? "Side bet").replace(/ \(take (\d+)\)$/, "")} (take …)". Rolled-over legs only count once.</p>
+      ) : bet.noVote ? (
         <p className="text-xs text-muted">No-vote bet: {name(bet.bozoId)} stays bozo, and the new bet is no-vote too.</p>
       ) : (
         <>
@@ -169,7 +172,7 @@ function ReloadPanel({ bet, players, run, onDone }: { bet: Bet; players: Record<
         </div>
       )}
       <button className="btn btn-ghost" disabled={!ready || !carry.length}
-        onClick={() => confirm(bet.noVote ? `Reload? ${name(bet.bozoId)} stays bozo.` : `${name(reloader!)} self-proclaims bozo and reloads?`) && go()}>
+        onClick={() => confirm(bet.kind === "side" ? "Reload this side bet?" : bet.noVote ? `Reload? ${name(bet.bozoId)} stays bozo.` : `${name(reloader!)} self-proclaims bozo and reloads?`) && go()}>
         {!carry.length && ready ? "Every game has started: nothing to roll over" : "Reload"}
       </button>
     </div>
@@ -245,7 +248,7 @@ function BetEditor({ bet, players, run, onChange, onNew }: { bet: Bet; players: 
             <p className="text-sm text-ink-2">Set every result above, then settle. Pushes are dropped and the payout recomputed unless you enter what the casino actually paid.</p>
             <Field label="Actual payout (optional, only if it hit)"><input className="input" inputMode="decimal" value={payout} onChange={(e) => setPayout(e.target.value)} /></Field>
             <button className="btn btn-primary" onClick={() => run(async () => { await post(`/admin/bets/${bet.id}/settle`, { payout: payout ? Number(payout) : undefined }); await onChange(); }, "Settled")}>Settle bet</button>
-            {bet.kind === "bozo" && <ReloadPanel bet={bet} players={players} run={run} onDone={async () => { onNew(); await onChange(); }} />}
+            <ReloadPanel bet={bet} players={players} run={run} onDone={async () => { onNew(); await onChange(); }} />
           </div>
         </Section>
       )}

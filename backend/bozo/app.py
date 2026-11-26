@@ -304,8 +304,11 @@ def admin_reload(req):
     old = _bundle(req.params["betId"])
     new = rules.reload(old, req.body.get("playerId"), req.body.get("wager") or db.get_settings()["defaultWager"],
                        req.body.get("date") or today_ct())
-    scouting.kick(f"bet {old['id']} reloaded")  # its won/lost legs count now
-    slack.new_bozo(old, _players())
+    if old["kind"] == "side":
+        slack.reloaded(old, new, _players())
+    else:
+        scouting.kick(f"bet {old['id']} reloaded")  # its won/lost legs count now
+        slack.new_bozo(old, _players())
     return _present(req, new)
 
 

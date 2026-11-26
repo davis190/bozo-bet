@@ -202,15 +202,24 @@ def vote_results(bet, players):
          + f"\n<{SITE}/bets/{bet['id']}|Full results>" + _next_open(bet))
 
 
+def _reload_lines(bet, players):
+    repick = ", ".join(_name(players, pid) for pid in bet.get("repick") or [])
+    carried = ", ".join(_name(players, l["playerId"]) for l in bet.get("legs", []) if l.get("carriedOver"))
+    return f":arrow_right: Rolling over: {carried or 'nobody'}\n:pencil2: Pick a new leg: *{repick or 'nobody'}*\n<{SITE}|Bozo Bet>"
+
+
+def reloaded(old, new, players):
+    """A side bet reloaded: no bozo involved, just who rolls over and who re-picks."""
+    main(f"{_side(old)}:repeat: *Reloaded* ({old.get('record', '')}) as *{new.get('title')}*\n{_reload_lines(old, players)}")
+
+
 def new_bozo(bet, players):
     if bet.get("nextBozoMethod") == "stays":
         return parlay_hit(bet, players)
     who = _name(players, bet["nextBozoId"])
     if bet.get("outcome") == "reload":
-        repick = ", ".join(_name(players, pid) for pid in bet.get("repick") or [])
-        carried = ", ".join(_name(players, l["playerId"]) for l in bet.get("legs", []) if l.get("carriedOver"))
         head = f"*{who} reloaded.* Self-proclaimed bozo." if bet.get("nextBozoMethod") == "reload" else f"*Reloaded* ({bet.get('record', '')}). No vote on this one - *{who}* stays bozo."
-        main(f":repeat: {head}\n:arrow_right: Rolling over: {carried or 'nobody'}\n:pencil2: Pick a new leg: *{repick or 'nobody'}*\n<{SITE}|Bozo Bet>")
+        main(f":repeat: {head}\n{_reload_lines(bet, players)}")
         return
     if bet.get("nextBozoMethod") == "kept":
         main(f":shrug: *Side bet missed* ({bet.get('record', '')}). No vote on this one - *{who}* stays bozo." + _next_open(bet))

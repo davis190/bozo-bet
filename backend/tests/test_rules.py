@@ -478,3 +478,17 @@ def test_tracker_pace_judges_what_is_still_needed_against_time_left():
     assert pace(24, 47.5, 0.5, over=False) == "IN_DOUBT"  # under 47.5 at 24 at the half: coin flip
     assert pace(10, 47.5, 0.5, over=False) == "ON_PACE"
     assert pace(40, 47.5, 0.6, over=False) == "OFF_PACE"
+
+
+def test_side_bets_reload_as_take_n_with_no_bozo(fake):
+    bet = rules.create_bet("side", "2026-11-26", 10, title="ATD Parlay (take 2)")
+    for pid in ("p1", "p2"):
+        rules.upsert_leg(bet, pid, {"text": pid, "odds": 100}, "app")
+    rules.lock(bet)
+    bet["legs"][0]["result"] = "L"
+    new = rules.reload(bet, None, 10, "2026-11-26")
+    assert new["kind"] == "side" and new["title"] == "ATD Parlay (take 3)" and not new.get("bozoId")
+    assert "nextBozoId" not in bet and bet["repick"] == ["p1"] and [l["playerId"] for l in new["legs"]] == ["p2"]
+    # the carried leg counts once (on the new bet); the re-picker's lost leg still counts on the old one
+    assert [l["playerId"] for l in rules.counted_legs(bet)] == ["p1"]
+    assert rules.take_next("Christmas Bets") == "Christmas Bets (take 2)"
