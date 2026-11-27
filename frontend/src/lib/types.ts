@@ -151,6 +151,7 @@ export interface RecordOut {
 
 export interface PlayerStats extends RecordOut {
   playerId: string;
+  bets: number; // bets they had a leg in
   avgOdds: number | null;
   avgWinOdds: number | null;
   bestWin: number | null;
@@ -172,17 +173,20 @@ export interface PlayerStats extends RecordOut {
 }
 
 export interface Stats {
+  range?: { from?: string | null; to?: string | null; kind: "bozo" | "side" };
   group: {
     parlays: number; hits: number; hitRate: number | null; expectedHitRate: number | null;
     nearMisses: number; spent: number; paidOut: number;
     biggestPayout: { betId: string; date: string; payout: number } | null;
+    closest: { betId: string; date: string; title?: string; record?: string; losers: number } | null;
+    noPayer: number; // settled bets with nobody recorded as paying (bozoId)
     legs: RecordOut;
     bySlot: Record<string, RecordOut>;
     heartbreaks: { betId: string; date: string; playerId: string; text: string; margin: number; game?: string }[];
   };
   players: PlayerStats[];
   votes: Record<string, Record<string, number>>;
-  timeline: { betId: string; date: string; result?: Result; record?: string; bozoId?: string; nextBozoId?: string; method?: string; odds?: number; legs: Record<string, Result | null> }[];
+  timeline: { betId: string; date: string; title?: string; result?: Result; record?: string; bozoId?: string; nextBozoId?: string; method?: string; odds?: number; legs: Record<string, Result | null> }[];
 }
 
 export interface ParsedLeg {

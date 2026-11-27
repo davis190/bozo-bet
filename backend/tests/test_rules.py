@@ -518,3 +518,18 @@ def test_editing_a_leg_drops_looked_up_odds(fake):
     leg = rules.upsert_leg(bet, "p2", {"odds": -115}, "app")
     assert leg["odds"] == -115 and "oddsSource" not in leg
     assert rules.needs_market_odds(bet, {**leg, "oddsSource": "market"})
+
+
+def test_side_stats_stay_separate_and_count_bets_played():
+    def side(i, results, payer=None):
+        return {"id": f"2026-01-0{i}-s1", "date": f"2026-01-0{i}", "kind": "side", "status": "CLOSED", "result": "L",
+                "wager": 10, "bozoId": payer, "title": f"Side {i}",
+                "legs": [{"playerId": p, "text": "x", "result": r} for p, r in results]}
+    bozo = {"id": "2026-01-01-1", "date": "2026-01-01", "kind": "bozo", "status": "CLOSED", "result": "L",
+            "legs": [{"playerId": "p3", "text": "y", "result": "L"}]}
+    bets = [bozo, side(2, [("p1", "W"), ("p2", "L"), ("p3", "L")], "p1"), side(3, [("p1", "L"), ("p2", "W")])]
+    s = stats.compute(bets, [{"id": p, "slot": i} for i, p in enumerate(("p1", "p2", "p3"), 1)], kind="side")
+    by = {p["playerId"]: p for p in s["players"]}
+    assert s["group"]["parlays"] == 2 and s["group"]["noPayer"] == 1
+    assert by["p1"]["bets"] == 2 and by["p3"]["bets"] == 1 and by["p3"]["l"] == 1  # the bozo leg isn't counted
+    assert s["group"]["closest"]["betId"] == "2026-01-03-s1" and s["group"]["closest"]["losers"] == 1

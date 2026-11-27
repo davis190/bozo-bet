@@ -124,14 +124,14 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
         "rec": Rec(), "splits": defaultdict(lambda: defaultdict(Rec)), "results": [], "odds": [], "winOdds": [],
         "bozo": 0, "voted": 0, "auto": 0, "reload": 0, "spent": 0.0, "won": 0.0,
         "curse": Rec(), "soleKiller": 0, "soleKills": [], "leftOnTable": 0.0, "lostMargin": [], "teams": Counter(),
-        "homer": Rec(), "against": Rec(), "crowd": Counter(),
+        "homer": Rec(), "against": Rec(), "crowd": Counter(), "bets": 0,
     } for pid in pids}
     favs = {p["id"]: {t["team"] for t in (p.get("favoriteTeams") or []) if t.get("team")} for p in players}
     heartbreaks, group_slots = [], defaultdict(Rec)
     year_ago = (date.fromisoformat(today_ct()) - timedelta(days=365)).isoformat()  # Hall of Heartbreak: last 12 months
     votes = defaultdict(Counter)
     group = {"parlays": 0, "hits": 0, "nearMisses": 0, "xHits": 0.0, "xHitsN": 0, "spent": 0.0, "paidOut": 0.0,
-             "biggestPayout": None, "legs": Rec(), "bySize": Counter()}
+             "biggestPayout": None, "legs": Rec(), "bySize": Counter(), "closest": None, "noPayer": 0}
     timeline = []
 
     for b in bets:
@@ -140,6 +140,8 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
             continue
         settled = b.get("status") in ("CLOSED", "VOTING")
         losers = [l["playerId"] for l in legs if l.get("result") == "L"]
+        for pid in {l["playerId"] for l in legs} & per.keys():
+            per[pid]["bets"] += 1
         if settled:
             group["parlays"] += 1
             group["spent"] += float(b.get("wager") or 0)
@@ -150,6 +152,13 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
                     group["biggestPayout"] = {"betId": b["id"], "date": b["date"], "payout": b.get("payout")}
             if len(losers) == 1 and b.get("outcome") != "reload":
                 group["nearMisses"] += 1
+            if not b.get("bozoId"):
+                group["noPayer"] += 1
+            # Closest call: the miss with the fewest losing legs; ties go to the newest
+            c = group["closest"]
+            if b.get("result") != "W" and losers and (not c or len(losers) <= c["losers"]):
+                group["closest"] = {"betId": b["id"], "date": b["date"], "title": b.get("title"),
+                                    "record": b.get("record"), "losers": len(losers)}
             probs = [odds.implied_prob(l.get("odds")) for l in legs if l.get("result") != "P"]
             if probs and None not in probs:
                 x = 1.0
@@ -217,7 +226,7 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
         for v in b.get("votes", []) if votes_revealed(b) else []:
             votes[v["voterId"]][v["candidateId"]] += 1
         timeline.append({
-            "betId": b["id"], "date": b["date"], "result": b.get("result"), "record": b.get("record"),
+            "betId": b["id"], "date": b["date"], "title": b.get("title"), "result": b.get("result"), "record": b.get("record"),
             "bozoId": bozo, "nextBozoId": nb, "method": how, "odds": b.get("totalOdds"),
             "legs": {l["playerId"]: l.get("result") for l in legs},
         })
@@ -230,6 +239,7 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
         best_win = max(s["winOdds"], key=lambda o: odds.to_decimal(o), default=None)
         out_players.append({
             "playerId": pid,
+            "bets": s["bets"],
             **s["rec"].out(),
             "avgOdds": _avg_american(s["odds"]),
             "avgWinOdds": _avg_american(s["winOdds"]),
@@ -259,6 +269,7 @@ def compute(bets, players, frm=None, to=None, kind="bozo", emoji_kinds=None):
             "nearMisses": g["nearMisses"],
             "spent": round(g["spent"], 2), "paidOut": round(g["paidOut"], 2),
             "biggestPayout": g["biggestPayout"],
+            "closest": g["closest"], "noPayer": g["noPayer"],
             "legs": g["legs"].out(),
             "bySlot": {k: r.out() for k, r in sorted(group_slots.items(), key=lambda x: -(x[1].w + x[1].l))},
             # closest losses in the last 12 months (margin is negative = missed by that much); ties: newest first

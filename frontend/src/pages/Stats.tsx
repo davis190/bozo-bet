@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from "recharts";
 import { useApi } from "../lib/api";
 import { fmtDate, fmtMoney, fmtOdds, fmtPct, fmtSigned, record } from "../lib/format";
@@ -52,11 +52,28 @@ const streakVal = (r: PlayerStats) => {
   return c ? (c.startsWith("W") ? 1 : -1) * Number(c.slice(1)) : 0;
 };
 
+/** Bozo bets and side bets never mix: the toggle swaps the whole page. Kept in the URL so it can be linked. */
+function KindToggle({ side, setSide }: { side: boolean; setSide: (v: boolean) => void }) {
+  return (
+    <div className="inline-flex rounded-full bg-surface-2 p-1 mb-3" role="tablist" aria-label="Bet type">
+      {([[false, "🤡 Bozo bets"], [true, "🎲 Side bets"]] as const).map(([v, label]) => (
+        <button key={label} role="tab" aria-selected={side === v} onClick={() => setSide(v)}
+          className={`rounded-full px-3.5 py-1.5 text-sm font-semibold ${side === v ? "bg-ink text-bg" : "text-ink-2"}`}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function Stats() {
   const { players, setPlayers } = useSession();
   const { range, setRange, qs } = useRange();
+  const [params, setParams] = useSearchParams();
+  const side = params.get("kind") === "side";
+  const setSide = (v: boolean) => setParams(v ? { kind: "side" } : {}, { replace: true });
   const cur = useApi<{ players: Player[]; droughts: Record<string, Drought>; currentBozoId?: string }>("/current");
-  const { data: raw, error, loading } = useApi<StatsT>(`/stats?${qs}`);
+  const { data: raw, error } = useApi<StatsT>(`/stats?${qs}${side ? "&kind=side" : ""}`);
   const [sort, setSort] = useState<SortKey>("pct");
   const [showRetired, setShowRetired] = useState(() => {
     try { return localStorage.getItem("bozo.showRetired") === "1"; } catch { return false; }
@@ -82,16 +99,31 @@ export default function Stats() {
   const rows = useMemo(() => [...(data?.players ?? [])].sort((a, b) =>
     sort === "streak" ? streakVal(b) - streakVal(a) : (b[sort] ?? -999) - (a[sort] ?? -999)), [data, sort]);
 
-  if (loading && !data) return <Spinner label="Crunching the shame…" />;
-  if (error || !data) return <ErrorBox error={error} />;
+  const retiredToggle = retiredCount > 0 && (
+    <label className="flex items-center justify-center gap-2 text-xs text-muted mt-10 mb-2">
+      <input type="checkbox" checked={showRetired} onChange={(e) => setShowRetired(e.target.checked)} />
+      Show retired bozos ({retiredCount})
+    </label>
+  );
+  const header = (
+    <>
+      <h1 className="font-display text-3xl">Stats</h1>
+      <p className="text-ink-2 text-sm mb-3">Numbers don't lie. Bozos do.</p>
+      <KindToggle side={side} setSide={setSide} />
+      <RangePicker range={range} setRange={setRange} />
+    </>
+  );
+
+  // The old kind's numbers stay in data until the new fetch lands: never show them under the other toggle
+  if (!error && (!data || data.range?.kind !== (side ? "side" : "bozo"))) return <div>{header}<Spinner label="Crunching the shame…" /></div>;
+  if (error || !data) return <div>{header}<ErrorBox error={error} /></div>;
+  if (side) return <div>{header}<SideStats data={data} players={players} />{retiredToggle}</div>;
   const g = data.group;
   const cursed = g.hitRate != null && g.expectedHitRate != null ? g.hitRate - g.expectedHitRate : null;
 
   return (
     <div>
-      <h1 className="font-display text-3xl">Stats</h1>
-      <p className="text-ink-2 text-sm mb-3">Numbers don't lie. Bozos do.</p>
-      <RangePicker range={range} setRange={setRange} />
+      {header}
 
       <div className="grid grid-cols-2 gap-2 mt-3">
         <Stat info="parlaysHit" label="Parlays hit" value={`${g.hits}/${g.parlays}`} sub={`${fmtPct(g.hitRate, 1)} · odds said ${fmtPct(g.expectedHitRate, 1)}`} />
@@ -163,13 +195,85 @@ export default function Stats() {
         <Glossary title="Every stat, explained" keys={Object.keys(GLOSSARY) as TermKey[]} />
       </Section>
 
-      {retiredCount > 0 && (
-        <label className="flex items-center justify-center gap-2 text-xs text-muted mt-10 mb-2">
-          <input type="checkbox" checked={showRetired} onChange={(e) => setShowRetired(e.target.checked)} />
-          Show retired bozos ({retiredCount})
-        </label>
-      )}
+      {retiredToggle}
     </div>
+  );
+}
+
+/** Side bets: who plays them, how their legs do, who pays. No bozo, no votes, so none of the bozo sections. */
+function SideStats({ data, players }: { data: StatsT; players: Record<string, Player> }) {
+  const g = data.group;
+  if (!g.parlays && !data.players.length) return <div className="card p-6 text-center text-ink-2 mt-3">No side bets in this range.</div>;
+  const rows = [...data.players].sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1) || b.w + b.l - (a.w + a.l));
+  const c = g.closest;
+  const recent = [...data.timeline].reverse().slice(0, 8);
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2 mt-3">
+        <Stat label="Side bets hit" value={`${g.hits}/${g.parlays}`} sub={g.hits ? fmtPct(g.hitRate, 1) : "still waiting on the first one"} />
+        <Stat label="Legs hit" value={record(g.legs)} sub={fmtPct(g.legs.pct)} />
+        <Stat label="Wagered" value={fmtMoney(g.spent)} sub={`${fmtMoney(g.paidOut)} paid out`} />
+        <Stat label="Closest call" value={c?.record ?? "—"} sub={c ? `${c.title ?? fmtDate(c.date)} · ${c.losers} leg${c.losers === 1 ? "" : "s"} short` : ""} />
+      </div>
+
+      <Section title="Side bet records">
+        <div className="card overflow-x-auto">
+          <table className="w-full text-sm tabular">
+            <thead className="text-[11px] uppercase text-muted">
+              <tr className="text-left">
+                <th className="p-3 font-semibold">Bettor</th>
+                <th className="p-3 font-semibold text-right" title="Side bets they had a leg in">Bets</th>
+                <th className="p-3 font-semibold text-right">Record</th>
+                <th className="p-3 font-semibold text-right">Win%</th>
+                <th className="p-3 font-semibold text-right" title="Money they put up as the payer">Paid</th>
+                <th className="p-3 font-semibold text-right" title="Their share of side bets that hit">Won</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const p = players[r.playerId];
+                return (
+                  <tr key={r.playerId} className="border-t border-[var(--border)]">
+                    <td className="p-3">
+                      <span className="flex items-center gap-2 font-bold whitespace-nowrap">
+                        <Avatar p={p} size={26} /> <span className="truncate max-w-[9rem]">{p?.displayName}</span>
+                      </span>
+                    </td>
+                    <td className="p-3 text-right">{r.bets}</td>
+                    <td className="p-3 text-right font-mono whitespace-nowrap">{record(r)}</td>
+                    <td className="p-3 text-right">{fmtPct(r.pct)}</td>
+                    <td className="p-3 text-right whitespace-nowrap">{r.spent ? fmtMoney(r.spent) : "—"}</td>
+                    <td className="p-3 text-right whitespace-nowrap">{r.won ? fmtMoney(r.won) : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {g.noPayer > 0 && (
+          <p className="text-xs text-muted mt-2 px-1">
+            {g.noPayer} of {g.parlays} side bets don't say who paid, so "Paid" is short. An admin can set "Paid by" on the bet.
+          </p>
+        )}
+      </Section>
+
+      <Heartbreak data={data} players={players} />
+
+      <Section title="Recent side bets">
+        <div className="card divide-y divide-[var(--border)]">
+          {recent.map((b) => (
+            <Link key={b.betId} to={`/bets/${b.betId}`} className="flex items-center gap-3 p-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold truncate">{b.title || "Side bet"}</div>
+                <div className="text-xs text-muted">{fmtDate(b.date, { month: "short", day: "numeric", year: "numeric" })}{b.bozoId && players[b.bozoId] ? ` · paid by ${players[b.bozoId].displayName}` : ""}</div>
+              </div>
+              <div className="font-mono text-sm tabular whitespace-nowrap">{b.record ?? "—"}</div>
+              <div className="w-6 text-center">{b.result === "W" ? "💰" : b.result === "L" ? "💀" : "⏳"}</div>
+            </Link>
+          ))}
+        </div>
+      </Section>
+    </>
   );
 }
 
